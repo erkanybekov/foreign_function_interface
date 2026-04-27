@@ -31,6 +31,10 @@ dependencies:
   flutter:
     sdk: flutter
 
+  bank_core_ffi:
+    path: packages/bank_core_ffi
+  ffi: ^2.2.0
+
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8

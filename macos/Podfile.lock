@@ -1,0 +1,22 @@
+PODS:
+  - bank_core_ffi (0.0.1):
+    - FlutterMacOS
+  - FlutterMacOS (1.0.0)
+
+DEPENDENCIES:
+  - bank_core_ffi (from `Flutter/ephemeral/.symlinks/plugins/bank_core_ffi/macos`)
+  - FlutterMacOS (from `Flutter/ephemeral`)
+
+EXTERNAL SOURCES:
+  bank_core_ffi:
+    :path: Flutter/ephemeral/.symlinks/plugins/bank_core_ffi/macos
+  FlutterMacOS:
+    :path: Flutter/ephemeral
+
+SPEC CHECKSUMS:
+  bank_core_ffi: 5e145e8857f4f136a434ae7b26599d50ca879ec7
+  FlutterMacOS: 8f6f14fa908a6fb3fba0cd85dbd81ec4b251fb24
+
+PODFILE CHECKSUM: 7eb978b976557c8c1cd717d8185ec483fd090a82
+
+COCOAPODS: 1.16.2

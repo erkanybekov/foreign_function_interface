@@ -1,0 +1,22 @@
+PODS:
+  - bank_core_ffi (0.0.1):
+    - Flutter
+  - Flutter (1.0.0)
+
+DEPENDENCIES:
+  - bank_core_ffi (from `.symlinks/plugins/bank_core_ffi/ios`)
+  - Flutter (from `Flutter`)
+
+EXTERNAL SOURCES:
+  bank_core_ffi:
+    :path: ".symlinks/plugins/bank_core_ffi/ios"
+  Flutter:
+    :path: Flutter
+
+SPEC CHECKSUMS:
+  bank_core_ffi: 32308b023193a0c3825e55570634829abad5aa9d
+  Flutter: e0871f40cf51350855a761d2e70bf5af5b9b5de7
+
+PODFILE CHECKSUM: 4305caec6b40dde0ae97be1573c53de1882a07e5
+
+COCOAPODS: 1.16.2
