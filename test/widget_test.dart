@@ -1,13 +1,19 @@
 import 'package:bank_core_ffi/bank_core_ffi.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:foreign_function_interface/galaxy/galaxy_simulation.dart';
 import 'package:foreign_function_interface/main.dart';
 
 void main() {
   testWidgets('Bank FFI lab renders validators and risk score', (
     WidgetTester tester,
   ) async {
-    await tester.pumpWidget(MyApp(service: _FakeBankLabService()));
+    await tester.pumpWidget(
+      MyApp(
+        service: _FakeBankLabService(),
+        benchmarkBackendBuilder: _fakeBenchmarkBackendBuilder,
+      ),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('Bank FFI Lab'), findsOneWidget);
@@ -18,7 +24,12 @@ void main() {
   });
 
   testWidgets('PAN status reacts to user input', (WidgetTester tester) async {
-    await tester.pumpWidget(MyApp(service: _FakeBankLabService()));
+    await tester.pumpWidget(
+      MyApp(
+        service: _FakeBankLabService(),
+        benchmarkBackendBuilder: _fakeBenchmarkBackendBuilder,
+      ),
+    );
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextField).first, '1234');
@@ -27,10 +38,15 @@ void main() {
     expect(find.text('PAN INVALID'), findsOneWidget);
   });
 
-  testWidgets('Galaxy benchmark opens on the Dart backend', (
+  testWidgets('Galaxy benchmark opens in compare mode', (
     WidgetTester tester,
   ) async {
-    await tester.pumpWidget(MyApp(service: _FakeBankLabService()));
+    await tester.pumpWidget(
+      MyApp(
+        service: _FakeBankLabService(),
+        benchmarkBackendBuilder: _fakeBenchmarkBackendBuilder,
+      ),
+    );
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Galaxy Benchmark'));
@@ -39,7 +55,22 @@ void main() {
 
     expect(find.text('Galaxy Benchmark'), findsWidgets);
     expect(find.text('Reset field'), findsOneWidget);
+    expect(find.text('Compare mode'), findsOneWidget);
+    expect(find.text('Pure Dart'), findsWidgets);
+    expect(find.text('C via FFI'), findsWidgets);
   });
+}
+
+GalaxySimulationBackend _fakeBenchmarkBackendBuilder(
+  GalaxyComputeBackend kind,
+  int particleCount,
+  GalaxyStepConfig config,
+  BankCoreFfi? core,
+) {
+  return DartGalaxySimulationBackend(
+    particleCount: particleCount,
+    config: config,
+  );
 }
 
 class _FakeBankLabService implements BankLabService {

@@ -1,6 +1,6 @@
-import 'dart:ui' show lerpDouble;
 import 'dart:math' as math;
 import 'dart:typed_data';
+import 'dart:ui' show lerpDouble;
 
 import 'package:bank_core_ffi/bank_core_ffi.dart';
 import 'package:flutter/material.dart';
@@ -10,10 +10,21 @@ import 'galaxy_simulation.dart';
 
 const List<int> galaxyParticlePresets = <int>[768, 1536, 3072];
 
+enum GalaxyBenchmarkViewMode { compare, single }
+
+typedef GalaxyBenchmarkBackendBuilder =
+    GalaxySimulationBackend Function(
+      GalaxyComputeBackend kind,
+      int particleCount,
+      GalaxyStepConfig config,
+      BankCoreFfi? core,
+    );
+
 class GalaxyBenchmarkPage extends StatefulWidget {
-  const GalaxyBenchmarkPage({super.key, this.core});
+  const GalaxyBenchmarkPage({super.key, this.core, this.backendBuilder});
 
   final BankCoreFfi? core;
+  final GalaxyBenchmarkBackendBuilder? backendBuilder;
 
   @override
   State<GalaxyBenchmarkPage> createState() => _GalaxyBenchmarkPageState();
@@ -23,15 +34,15 @@ class _GalaxyBenchmarkPageState extends State<GalaxyBenchmarkPage>
     with SingleTickerProviderStateMixin {
   late final Ticker _ticker;
   late final ValueNotifier<int> _painterTick;
-  late GalaxySimulationBackend _backend;
+  late final Map<GalaxyComputeBackend, _BenchmarkSceneState> _scenes;
   BankCoreFfi? _core;
 
-  GalaxyComputeBackend _backendKind = GalaxyComputeBackend.dart;
+  GalaxyBenchmarkViewMode _viewMode = GalaxyBenchmarkViewMode.compare;
+  GalaxyComputeBackend _singleBackendKind = GalaxyComputeBackend.dart;
   int _particleCount = 1536;
   double _timeScale = 1.0;
   double _swirl = 1.35;
   double _centerPull = 1.6;
-  double _smoothedStepMicros = 0;
   double _smoothedFrameMicros = 16667;
   int _sampleCount = 0;
   Duration? _lastElapsed;
@@ -40,7 +51,10 @@ class _GalaxyBenchmarkPageState extends State<GalaxyBenchmarkPage>
   void initState() {
     super.initState();
     _painterTick = ValueNotifier<int>(0);
-    _backend = _createBackend(_backendKind, particleCount: _particleCount);
+    _scenes = <GalaxyComputeBackend, _BenchmarkSceneState>{
+      for (final kind in GalaxyComputeBackend.values)
+        kind: _createScene(kind, particleCount: _particleCount),
+    };
     _ticker = createTicker(_handleTick)..start();
   }
 
@@ -48,7 +62,9 @@ class _GalaxyBenchmarkPageState extends State<GalaxyBenchmarkPage>
   void dispose() {
     _ticker.dispose();
     _painterTick.dispose();
-    _backend.dispose();
+    for (final scene in _scenes.values) {
+      scene.dispose();
+    }
     super.dispose();
   }
 
@@ -62,46 +78,57 @@ class _GalaxyBenchmarkPageState extends State<GalaxyBenchmarkPage>
     respawnRadius: 0.95,
   );
 
-  GalaxySimulationBackend _createBackend(
-    GalaxyComputeBackend kind, {
-    required int particleCount,
-  }) {
-    return switch (kind) {
-      GalaxyComputeBackend.dart => DartGalaxySimulationBackend(
-        particleCount: particleCount,
-        config: _stepConfig,
-      ),
-      GalaxyComputeBackend.cFfi => FfiGalaxySimulationBackend(
-        core: _resolvedCore,
-        particleCount: particleCount,
-        config: _stepConfig,
-      ),
+  Iterable<_BenchmarkSceneState> get _activeScenes {
+    return switch (_viewMode) {
+      GalaxyBenchmarkViewMode.compare => _scenes.values,
+      GalaxyBenchmarkViewMode.single => <_BenchmarkSceneState>[
+        _scenes[_singleBackendKind]!,
+      ],
     };
   }
 
-  void _replaceBackend(GalaxyComputeBackend kind) {
-    final nextBackend = _createBackend(kind, particleCount: _particleCount);
-    final previousBackend = _backend;
-    setState(() {
-      _backend = nextBackend;
-      _backendKind = kind;
-      _resetMetrics();
-    });
-    previousBackend.dispose();
+  _BenchmarkSceneState _createScene(
+    GalaxyComputeBackend kind, {
+    required int particleCount,
+  }) {
+    final builder = widget.backendBuilder;
+    if (builder != null) {
+      return _BenchmarkSceneState(
+        kind: kind,
+        backend: builder(kind, particleCount, _stepConfig, widget.core),
+      );
+    }
+
+    return _BenchmarkSceneState(
+      kind: kind,
+      backend: switch (kind) {
+        GalaxyComputeBackend.dart => DartGalaxySimulationBackend(
+          particleCount: particleCount,
+          config: _stepConfig,
+        ),
+        GalaxyComputeBackend.cFfi => FfiGalaxySimulationBackend(
+          core: _resolvedCore,
+          particleCount: particleCount,
+          config: _stepConfig,
+        ),
+      },
+    );
   }
 
-  void _reseedBackend() {
-    setState(() {
-      _backend.reseed(_particleCount, config: _stepConfig);
-      _resetMetrics();
-    });
+  void _reseedAllScenes() {
+    for (final scene in _scenes.values) {
+      scene.reseed(_particleCount, config: _stepConfig);
+    }
+    _resetMetrics();
   }
 
   void _resetMetrics() {
     _lastElapsed = null;
     _sampleCount = 0;
-    _smoothedStepMicros = 0;
     _smoothedFrameMicros = 16667;
+    for (final scene in _scenes.values) {
+      scene.resetMetrics();
+    }
   }
 
   void _handleTick(Duration elapsed) {
@@ -119,13 +146,11 @@ class _GalaxyBenchmarkPageState extends State<GalaxyBenchmarkPage>
 
     final dtSeconds =
         (rawFrameMicros / 1000000.0).clamp(1 / 240, 1 / 20) * _timeScale;
-    final stepDuration = _backend.step(dtSeconds, config: _stepConfig);
+    for (final scene in _activeScenes) {
+      scene.step(dtSeconds, config: _stepConfig);
+    }
 
     _smoothedFrameMicros = _smooth(_smoothedFrameMicros, rawFrameMicros);
-    _smoothedStepMicros = _smooth(
-      _smoothedStepMicros,
-      stepDuration.inMicroseconds.toDouble(),
-    );
     _sampleCount++;
     _painterTick.value++;
 
@@ -141,20 +166,44 @@ class _GalaxyBenchmarkPageState extends State<GalaxyBenchmarkPage>
     return (previous * 0.88) + (next * 0.12);
   }
 
+  String _compareSummary() {
+    final dartStepMicros =
+        _scenes[GalaxyComputeBackend.dart]!.smoothedStepMicros;
+    final ffiStepMicros =
+        _scenes[GalaxyComputeBackend.cFfi]!.smoothedStepMicros;
+    if (dartStepMicros <= 0 || ffiStepMicros <= 0) {
+      return 'warming up';
+    }
+
+    final fasterKind =
+        dartStepMicros <= ffiStepMicros
+            ? GalaxyComputeBackend.dart
+            : GalaxyComputeBackend.cFfi;
+    final slowerMicros =
+        fasterKind == GalaxyComputeBackend.dart
+            ? ffiStepMicros
+            : dartStepMicros;
+    final fasterMicros =
+        fasterKind == GalaxyComputeBackend.dart
+            ? dartStepMicros
+            : ffiStepMicros;
+    final gain = ((slowerMicros - fasterMicros) / slowerMicros) * 100;
+
+    return '${_backendLabel(fasterKind)} faster by ${gain.toStringAsFixed(1)}%';
+  }
+
   @override
   Widget build(BuildContext context) {
     final tickFps = 1000000 / _smoothedFrameMicros;
-    final particlesPerSecond =
-        _smoothedStepMicros == 0
-            ? 0
-            : (_particleCount * 1000000) / _smoothedStepMicros;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Galaxy Benchmark'),
         actions: <Widget>[
           TextButton.icon(
-            onPressed: _reseedBackend,
+            onPressed: () {
+              setState(_reseedAllScenes);
+            },
             icon: const Icon(Icons.refresh),
             label: const Text('Reset field'),
           ),
@@ -164,70 +213,66 @@ class _GalaxyBenchmarkPageState extends State<GalaxyBenchmarkPage>
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: <Widget>[
-          _BenchmarkHero(
-            particles: _backend.particles,
-            repaint: _painterTick,
-            backendKind: _backendKind,
+          _OverviewPanel(
+            viewMode: _viewMode,
+            particleCount: _particleCount,
+            tickFps: tickFps,
+            compareSummary: _compareSummary(),
           ),
           const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: <Widget>[
-              _MetricCard(
-                label: 'Backend step',
-                value: '${(_smoothedStepMicros / 1000).toStringAsFixed(3)} ms',
-              ),
-              _MetricCard(
-                label: 'Tick rate',
-                value: '${tickFps.toStringAsFixed(1)} fps',
-              ),
-              _MetricCard(
-                label: 'Particles / sec',
-                value: particlesPerSecond.toStringAsFixed(0),
-              ),
-              _MetricCard(
-                label: 'Buffer',
-                value: '$_particleCount x $galaxyParticleStride float32',
-              ),
-            ],
+          _SceneGrid(
+            scenes: _activeScenes.toList(growable: false),
+            repaint: _painterTick,
+            particleCount: _particleCount,
           ),
           const SizedBox(height: 12),
           _ControlsPanel(
-            backendKind: _backendKind,
+            viewMode: _viewMode,
+            backendKind: _singleBackendKind,
             particleCount: _particleCount,
             timeScale: _timeScale,
             swirl: _swirl,
             centerPull: _centerPull,
-            onBackendChanged: (kind) {
-              if (kind != null && kind != _backendKind) {
-                _replaceBackend(kind);
+            onViewModeChanged: (mode) {
+              if (mode == null || mode == _viewMode) {
+                return;
               }
+              setState(() {
+                _viewMode = mode;
+                _reseedAllScenes();
+              });
+            },
+            onBackendChanged: (kind) {
+              if (kind == null || kind == _singleBackendKind) {
+                return;
+              }
+              setState(() {
+                _singleBackendKind = kind;
+                _reseedAllScenes();
+              });
             },
             onParticleCountChanged: (value) {
               setState(() {
                 _particleCount = value;
-                _backend.reseed(_particleCount, config: _stepConfig);
-                _resetMetrics();
+                _reseedAllScenes();
               });
             },
             onTimeScaleChanged: (value) {
               setState(() {
                 _timeScale = value;
+                _resetMetrics();
               });
             },
             onSwirlChanged: (value) {
               setState(() {
                 _swirl = value;
-                _backend.reseed(_particleCount, config: _stepConfig);
-                _resetMetrics();
+                _reseedAllScenes();
               });
             },
             onCenterPullChanged: (value) {
               setState(() {
                 _centerPull = value;
-                _backend.reseed(_particleCount, config: _stepConfig);
-                _resetMetrics();
+                _reseedAllScenes();
               });
             },
           ),
@@ -239,19 +284,152 @@ class _GalaxyBenchmarkPageState extends State<GalaxyBenchmarkPage>
   }
 }
 
-class _BenchmarkHero extends StatelessWidget {
-  const _BenchmarkHero({
-    required this.particles,
-    required this.repaint,
-    required this.backendKind,
+class _BenchmarkSceneState {
+  _BenchmarkSceneState({required this.kind, required this.backend});
+
+  final GalaxyComputeBackend kind;
+  final GalaxySimulationBackend backend;
+  double smoothedStepMicros = 0;
+
+  Float32List get particles => backend.particles;
+
+  Duration step(
+    double dtSeconds, {
+    GalaxyStepConfig config = const GalaxyStepConfig(),
+  }) {
+    final duration = backend.step(dtSeconds, config: config);
+    smoothedStepMicros = _smooth(
+      smoothedStepMicros,
+      duration.inMicroseconds.toDouble(),
+    );
+    return duration;
+  }
+
+  void reseed(
+    int particleCount, {
+    GalaxyStepConfig config = const GalaxyStepConfig(),
+  }) {
+    backend.reseed(particleCount, config: config);
+    resetMetrics();
+  }
+
+  void resetMetrics() {
+    smoothedStepMicros = 0;
+  }
+
+  void dispose() {
+    backend.dispose();
+  }
+
+  static double _smooth(double previous, double next) {
+    if (previous == 0) {
+      return next;
+    }
+    return (previous * 0.88) + (next * 0.12);
+  }
+}
+
+class _OverviewPanel extends StatelessWidget {
+  const _OverviewPanel({
+    required this.viewMode,
+    required this.particleCount,
+    required this.tickFps,
+    required this.compareSummary,
   });
 
-  final Float32List particles;
-  final Listenable repaint;
-  final GalaxyComputeBackend backendKind;
+  final GalaxyBenchmarkViewMode viewMode;
+  final int particleCount;
+  final double tickFps;
+  final String compareSummary;
 
   @override
   Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: <Widget>[
+        _MetricCard(
+          label: 'View mode',
+          value: switch (viewMode) {
+            GalaxyBenchmarkViewMode.compare => 'Compare mode',
+            GalaxyBenchmarkViewMode.single => 'Single backend',
+          },
+        ),
+        _MetricCard(
+          label: 'Tick rate',
+          value: '${tickFps.toStringAsFixed(1)} fps',
+        ),
+        _MetricCard(
+          label: 'Particle buffer',
+          value: '$particleCount x $galaxyParticleStride float32',
+        ),
+        _MetricCard(label: 'Compare summary', value: compareSummary),
+      ],
+    );
+  }
+}
+
+class _SceneGrid extends StatelessWidget {
+  const _SceneGrid({
+    required this.scenes,
+    required this.repaint,
+    required this.particleCount,
+  });
+
+  final List<_BenchmarkSceneState> scenes;
+  final Listenable repaint;
+  final int particleCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        final narrow = constraints.maxWidth < 900;
+        final cardWidth =
+            narrow || scenes.length == 1
+                ? constraints.maxWidth
+                : (constraints.maxWidth - 12) / 2;
+
+        return Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children:
+              scenes
+                  .map(
+                    (scene) => SizedBox(
+                      width: cardWidth,
+                      child: _SceneCard(
+                        scene: scene,
+                        repaint: repaint,
+                        particleCount: particleCount,
+                      ),
+                    ),
+                  )
+                  .toList(),
+        );
+      },
+    );
+  }
+}
+
+class _SceneCard extends StatelessWidget {
+  const _SceneCard({
+    required this.scene,
+    required this.repaint,
+    required this.particleCount,
+  });
+
+  final _BenchmarkSceneState scene;
+  final Listenable repaint;
+  final int particleCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final particlesPerSecond =
+        scene.smoothedStepMicros == 0
+            ? 0
+            : (particleCount * 1000000) / scene.smoothedStepMicros;
+
     return Card(
       clipBehavior: Clip.antiAlias,
       elevation: 0,
@@ -259,38 +437,78 @@ class _BenchmarkHero extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
       ),
-      child: DecoratedBox(
-        decoration: const BoxDecoration(color: Color(0xFF04070D)),
-        child: AspectRatio(
-          aspectRatio: 1.45,
-          child: Stack(
-            children: <Widget>[
-              Positioned.fill(
-                child: CustomPaint(
-                  painter: _GalaxyPainter(
-                    particles: particles,
-                    repaint: repaint,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            child: Row(
+              children: <Widget>[
+                Expanded(
+                  child: Text(
+                    _backendLabel(scene.kind),
+                    style: Theme.of(context).textTheme.titleMedium,
                   ),
                 ),
-              ),
-              Positioned(
-                left: 16,
-                top: 16,
-                child: _HeroBadge(
-                  label:
-                      'Renderer: Flutter canvas | Compute: ${_backendLabel(backendKind)}',
+                Chip(
+                  label: Text(_sceneTag(scene.kind)),
+                  visualDensity: VisualDensity.compact,
                 ),
-              ),
-              const Positioned(
-                right: 16,
-                bottom: 16,
-                child: _HeroBadge(
-                  label: 'Fixed visual layer, swapped simulation core',
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: <Widget>[
+                _SceneMetricChip(
+                  label: 'Step',
+                  value:
+                      '${(scene.smoothedStepMicros / 1000).toStringAsFixed(3)} ms',
+                ),
+                _SceneMetricChip(
+                  label: 'Particles / sec',
+                  value: particlesPerSecond.toStringAsFixed(0),
+                ),
+              ],
+            ),
+          ),
+          DecoratedBox(
+            decoration: const BoxDecoration(color: Color(0xFF04070D)),
+            child: AspectRatio(
+              aspectRatio: 1.45,
+              child: Stack(
+                children: <Widget>[
+                  Positioned.fill(
+                    child: CustomPaint(
+                      painter: _GalaxyPainter(
+                        particles: scene.particles,
+                        repaint: repaint,
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    left: 16,
+                    top: 16,
+                    child: _HeroBadge(
+                      label:
+                          'Renderer: Flutter canvas | Compute: ${_backendLabel(scene.kind)}',
+                    ),
+                  ),
+                  const Positioned(
+                    right: 16,
+                    bottom: 16,
+                    child: _HeroBadge(
+                      label: 'Same renderer, same dt, same seed',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -298,11 +516,13 @@ class _BenchmarkHero extends StatelessWidget {
 
 class _ControlsPanel extends StatelessWidget {
   const _ControlsPanel({
+    required this.viewMode,
     required this.backendKind,
     required this.particleCount,
     required this.timeScale,
     required this.swirl,
     required this.centerPull,
+    required this.onViewModeChanged,
     required this.onBackendChanged,
     required this.onParticleCountChanged,
     required this.onTimeScaleChanged,
@@ -310,11 +530,13 @@ class _ControlsPanel extends StatelessWidget {
     required this.onCenterPullChanged,
   });
 
+  final GalaxyBenchmarkViewMode viewMode;
   final GalaxyComputeBackend backendKind;
   final int particleCount;
   final double timeScale;
   final double swirl;
   final double centerPull;
+  final ValueChanged<GalaxyBenchmarkViewMode?> onViewModeChanged;
   final ValueChanged<GalaxyComputeBackend?> onBackendChanged;
   final ValueChanged<int> onParticleCountChanged;
   final ValueChanged<double> onTimeScaleChanged;
@@ -332,24 +554,47 @@ class _ControlsPanel extends StatelessWidget {
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 12),
-          SegmentedButton<GalaxyComputeBackend>(
-            segments: const <ButtonSegment<GalaxyComputeBackend>>[
+          SegmentedButton<GalaxyBenchmarkViewMode>(
+            segments: const <ButtonSegment<GalaxyBenchmarkViewMode>>[
               ButtonSegment(
-                value: GalaxyComputeBackend.dart,
-                label: Text('Pure Dart'),
-                icon: Icon(Icons.code),
+                value: GalaxyBenchmarkViewMode.compare,
+                label: Text('Compare'),
+                icon: Icon(Icons.view_week),
               ),
               ButtonSegment(
-                value: GalaxyComputeBackend.cFfi,
-                label: Text('C via FFI'),
-                icon: Icon(Icons.memory),
+                value: GalaxyBenchmarkViewMode.single,
+                label: Text('Single'),
+                icon: Icon(Icons.filter_1),
               ),
             ],
-            selected: <GalaxyComputeBackend>{backendKind},
+            selected: <GalaxyBenchmarkViewMode>{viewMode},
             onSelectionChanged:
-                (value) => onBackendChanged(value.isEmpty ? null : value.first),
+                (value) =>
+                    onViewModeChanged(value.isEmpty ? null : value.first),
           ),
           const SizedBox(height: 12),
+          if (viewMode == GalaxyBenchmarkViewMode.single)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: SegmentedButton<GalaxyComputeBackend>(
+                segments: const <ButtonSegment<GalaxyComputeBackend>>[
+                  ButtonSegment(
+                    value: GalaxyComputeBackend.dart,
+                    label: Text('Pure Dart'),
+                    icon: Icon(Icons.code),
+                  ),
+                  ButtonSegment(
+                    value: GalaxyComputeBackend.cFfi,
+                    label: Text('C via FFI'),
+                    icon: Icon(Icons.memory),
+                  ),
+                ],
+                selected: <GalaxyComputeBackend>{backendKind},
+                onSelectionChanged:
+                    (value) =>
+                        onBackendChanged(value.isEmpty ? null : value.first),
+              ),
+            ),
           Wrap(
             spacing: 12,
             runSpacing: 12,
@@ -415,7 +660,7 @@ class _BenchmarkNotesPanel extends StatelessWidget {
           const _NoteRow(
             icon: Icons.balance,
             text:
-                'The painter is fixed in Flutter. Only the particle update backend changes.',
+                'Compare mode reseeds both backends together so they start from the same particle field.',
           ),
           const _NoteRow(
             icon: Icons.call_merge,
@@ -430,7 +675,7 @@ class _BenchmarkNotesPanel extends StatelessWidget {
           const _NoteRow(
             icon: Icons.warning_amber,
             text:
-                'This compares simulation-step cost, not shader throughput or full app power usage.',
+                'This compares simulation-step cost, not shader throughput, GPU time, or full app power usage.',
           ),
         ],
       ),
@@ -542,7 +787,7 @@ class _MetricCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 188,
+      width: 200,
       child: _Panel(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -553,6 +798,21 @@ class _MetricCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _SceneMetricChip extends StatelessWidget {
+  const _SceneMetricChip({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Chip(
+      label: Text('$label: $value'),
+      visualDensity: VisualDensity.compact,
     );
   }
 }
@@ -649,5 +909,12 @@ String _backendLabel(GalaxyComputeBackend backend) {
   return switch (backend) {
     GalaxyComputeBackend.dart => 'Pure Dart',
     GalaxyComputeBackend.cFfi => 'C via FFI',
+  };
+}
+
+String _sceneTag(GalaxyComputeBackend backend) {
+  return switch (backend) {
+    GalaxyComputeBackend.dart => 'No FFI',
+    GalaxyComputeBackend.cFfi => 'Native batch step',
   };
 }

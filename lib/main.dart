@@ -39,10 +39,16 @@ class FfiBankLabService implements BankLabService {
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key, this.service, this.core});
+  const MyApp({
+    super.key,
+    this.service,
+    this.core,
+    this.benchmarkBackendBuilder,
+  });
 
   final BankLabService? service;
   final BankCoreFfi? core;
+  final GalaxyBenchmarkBackendBuilder? benchmarkBackendBuilder;
 
   @override
   Widget build(BuildContext context) {
@@ -57,16 +63,25 @@ class MyApp extends StatelessWidget {
         scaffoldBackgroundColor: const Color(0xFFF7F8FA),
         useMaterial3: true,
       ),
-      home: _HomeShell(service: service, core: core),
+      home: _HomeShell(
+        service: service,
+        core: core,
+        benchmarkBackendBuilder: benchmarkBackendBuilder,
+      ),
     );
   }
 }
 
 class _HomeShell extends StatefulWidget {
-  const _HomeShell({required this.service, required this.core});
+  const _HomeShell({
+    required this.service,
+    required this.core,
+    required this.benchmarkBackendBuilder,
+  });
 
   final BankLabService? service;
   final BankCoreFfi? core;
+  final GalaxyBenchmarkBackendBuilder? benchmarkBackendBuilder;
 
   @override
   State<_HomeShell> createState() => _HomeShellState();
@@ -80,7 +95,10 @@ class _HomeShellState extends State<_HomeShell> {
     return Scaffold(
       body: switch (_selectedIndex) {
         0 => BankFfiLabPage(service: widget.service),
-        _ => GalaxyBenchmarkPage(core: widget.core),
+        _ => GalaxyBenchmarkPage(
+          core: widget.core,
+          backendBuilder: widget.benchmarkBackendBuilder,
+        ),
       },
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
