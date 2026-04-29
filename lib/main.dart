@@ -178,9 +178,13 @@ class FfiGuidePage extends StatelessWidget {
           const SizedBox(height: 12),
           const _GuideFlowPanel(),
           const SizedBox(height: 12),
+          const _ImplementationBasicsPanel(),
+          const SizedBox(height: 12),
           const _GuideApplicationsPanel(),
           const SizedBox(height: 12),
           const _GuideDecisionPanel(),
+          const SizedBox(height: 12),
+          const _FfiBestPracticesPanel(),
         ],
       ),
     );
@@ -324,6 +328,75 @@ class _GuideApplicationsPanel extends StatelessWidget {
   }
 }
 
+class _ImplementationBasicsPanel extends StatelessWidget {
+  const _ImplementationBasicsPanel();
+
+  @override
+  Widget build(BuildContext context) {
+    return _Panel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            'Implementation basics',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Minimum path: export C symbol, bind it in Dart, hide raw FFI behind a small facade.',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 12),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final narrow = constraints.maxWidth < 760;
+              final width =
+                  narrow
+                      ? constraints.maxWidth
+                      : (constraints.maxWidth - 12) / 2;
+              return Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children:
+                    const <Widget>[
+                      _BasicStepCard(
+                        title: '1. Native C ABI',
+                        body:
+                            'Export stable C functions. Avoid C++ ABI at the boundary.',
+                        code:
+                            'FFI_PLUGIN_EXPORT int32_t bank_add(int32_t a, int32_t b);',
+                      ),
+                      _BasicStepCard(
+                        title: '2. Dart binding',
+                        body:
+                            'Use generated bindings or lookupFunction for small demos.',
+                        code:
+                            "library.lookupFunction<Int32 Function(Int32, Int32), int Function(int, int)>('bank_add');",
+                      ),
+                      _BasicStepCard(
+                        title: '3. Public facade',
+                        body:
+                            'Expose domain methods. Keep Pointer, malloc, calloc out of UI.',
+                        code:
+                            'class BankCoreFfi { int add(int a, int b) => _bindings.bank_add(a, b); }',
+                      ),
+                      _BasicStepCard(
+                        title: '4. Memory contract',
+                        body:
+                            'Allocate native inputs in Dart, free them in finally.',
+                        code:
+                            'final p = text.toNativeUtf8(allocator: calloc); try { ... } finally { calloc.free(p); }',
+                      ),
+                    ].map((card) => SizedBox(width: width, child: card)).toList(),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _GuideDecisionPanel extends StatelessWidget {
   const _GuideDecisionPanel();
 
@@ -367,6 +440,69 @@ class _GuideDecisionPanel extends StatelessWidget {
                         'The logic is simple and already fast in Dart.',
                         'You would call native code once per tiny item.',
                         'You need Flutter web support for the same path.',
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FfiBestPracticesPanel extends StatelessWidget {
+  const _FfiBestPracticesPanel();
+
+  @override
+  Widget build(BuildContext context) {
+    return _Panel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            'Best practices',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 12),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final narrow = constraints.maxWidth < 680;
+              final width =
+                  narrow
+                      ? constraints.maxWidth
+                      : (constraints.maxWidth - 12) / 2;
+              return Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: <Widget>[
+                  SizedBox(
+                    width: width,
+                    child: const _DecisionColumn(
+                      icon: Icons.verified,
+                      title: 'Do',
+                      items: <String>[
+                        'Prefer generated bindings for real APIs.',
+                        'Batch work. One native call should process many items.',
+                        'Document ownership: who allocates, who frees.',
+                        'Map native error codes to Dart domain errors.',
+                        'Benchmark release builds, not debug builds.',
+                      ],
+                    ),
+                  ),
+                  SizedBox(
+                    width: width,
+                    child: const _DecisionColumn(
+                      icon: Icons.report_gmailerrorred,
+                      title: 'Do not',
+                      items: <String>[
+                        'Do not store Dart-owned pointers in native code.',
+                        'Do not call FFI once per tiny object in a loop.',
+                        'Do not block the UI isolate with long native work.',
+                        'Do not put secrets, PAN, IBAN, or tokens in logs.',
+                        'Do not write custom banking crypto in demo native code.',
                       ],
                     ),
                   ),
@@ -1206,6 +1342,72 @@ class _GuideTile extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BasicStepCard extends StatelessWidget {
+  const _BasicStepCard({
+    required this.title,
+    required this.body,
+    required this.code,
+  });
+
+  final String title;
+  final String body;
+  final String code;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+            const SizedBox(height: 4),
+            Text(body),
+            const SizedBox(height: 10),
+            _CodeBlock(code: code),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CodeBlock extends StatelessWidget {
+  const _CodeBlock({required this.code});
+
+  final String code;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xFF101820),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Text(
+            code,
+            maxLines: 2,
+            style: const TextStyle(
+              color: Color(0xFFE6EEF5),
+              fontFamily: 'monospace',
+              fontSize: 12,
+            ),
+          ),
         ),
       ),
     );

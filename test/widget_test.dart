@@ -31,6 +31,32 @@ void main() {
     expect(find.text('IBAN VALID'), findsOneWidget);
   });
 
+  testWidgets('Guide explains FFI basics and best practices', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1400, 3600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MyApp(
+        service: _FakeBankLabService(),
+        benchmarkBackendBuilder: _fakeBenchmarkBackendBuilder,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Implementation basics'), findsOneWidget);
+    expect(find.text('1. Native C ABI'), findsOneWidget);
+    expect(find.text('2. Dart binding'), findsOneWidget);
+    expect(find.text('3. Public facade'), findsOneWidget);
+    expect(find.text('4. Memory contract'), findsOneWidget);
+    expect(find.text('Best practices'), findsOneWidget);
+    expect(find.text('Do'), findsOneWidget);
+    expect(find.text('Do not'), findsOneWidget);
+  });
+
   testWidgets('PAN status reacts to user input', (WidgetTester tester) async {
     await tester.pumpWidget(
       MyApp(

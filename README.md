@@ -10,12 +10,16 @@ The app depends on the local FFI plugin in `packages/bank_core_ffi`. The plugin 
 - Native string inputs: PAN/Luhn and IBAN MOD-97 validation through `char*`.
 - Native structs: transaction risk input and output structs allocated by Dart.
 - Error mapping: negative native error codes become Dart exceptions/messages.
+- FFI implementation basics: C ABI export, Dart bindings, facade, and native memory ownership.
+- FFI best practices: generated bindings, batched calls, pointer ownership, release benchmarking, and no PII logging.
 - Batched native compute: a calm cosmos particle simulation where Flutter keeps the renderer and the compute backend switches between pure Dart and C via FFI.
 - Banking guardrails: no custom crypto, no PII logging, and FFI as a wrapper for audited native SDKs or libraries.
 
 ## App Screens
 
+- `Guide`: FFI basics, implementation path, banking use cases, and best practices.
 - `Bank Lab`: strings, structs, error mapping, and banking-oriented FFI examples.
+- `AntiFraud Fit`: where FFI belongs in a BI.ZONE AntiFraud-style client/server architecture.
 - `Cosmos Benchmark`: the same visual layer with two compute backends, measuring step time, tick rate, and particle updates per second.
 
 ## Run
@@ -40,9 +44,12 @@ flutter test
 
 The plugin tests compile `src/bank_core_ffi.c` into a temporary test dylib so the VM can exercise the real FFI calls without requiring a full Flutter app bundle.
 
-Local packaging checks performed on this machine:
+Local packaging check performed in this pass:
 
 - `flutter build macos --debug`
+
+Additional platform checks, when the local toolchains are available:
+
 - `flutter build apk --debug`
 - `flutter build ios --debug --simulator`
 
