@@ -71,11 +71,11 @@ class BankCoreFfiException implements Exception {
 
 class GalaxyStepConfig {
   const GalaxyStepConfig({
-    this.centerPull = 1.6,
-    this.swirl = 1.35,
-    this.damping = 0.995,
-    this.escapeRadius = 1.25,
-    this.respawnRadius = 0.95,
+    this.centerPull = 0.08,
+    this.swirl = 0.18,
+    this.damping = 0.999,
+    this.escapeRadius = 1.18,
+    this.respawnRadius = 1.08,
   });
 
   final double centerPull;

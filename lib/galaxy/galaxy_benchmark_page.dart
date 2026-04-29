@@ -43,9 +43,9 @@ class _GalaxyBenchmarkPageState extends State<GalaxyBenchmarkPage>
   GalaxyComputeBackend _singleBackendKind = GalaxyComputeBackend.dart;
   int _particleCount = 32768;
   int _substepsPerSample = 4;
-  double _timeScale = 1.0;
-  double _swirl = 1.35;
-  double _centerPull = 1.6;
+  double _timeScale = 0.8;
+  double _swirl = 0.18;
+  double _centerPull = 0.08;
   double _smoothedFrameMicros = 16667;
   int _sampleCount = 0;
   Duration? _lastElapsed;
@@ -76,9 +76,9 @@ class _GalaxyBenchmarkPageState extends State<GalaxyBenchmarkPage>
   GalaxyStepConfig get _stepConfig => GalaxyStepConfig(
     centerPull: _centerPull,
     swirl: _swirl,
-    damping: 0.995,
-    escapeRadius: 1.25,
-    respawnRadius: 0.95,
+    damping: 0.999,
+    escapeRadius: 1.18,
+    respawnRadius: 1.08,
   );
 
   Iterable<_BenchmarkSceneState> get _activeScenes {
@@ -206,7 +206,7 @@ class _GalaxyBenchmarkPageState extends State<GalaxyBenchmarkPage>
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Galaxy Benchmark'),
+        title: const Text('Cosmos Benchmark'),
         actions: <Widget>[
           TextButton.icon(
             onPressed: () {
@@ -681,7 +681,7 @@ class _SceneCard extends StatelessWidget {
                     right: 16,
                     bottom: 16,
                     child: _HeroBadge(
-                      label: 'Same renderer, same dt, same seed',
+                      label: 'Calm starfield, same dt, same seed',
                     ),
                   ),
                 ],
@@ -819,27 +819,27 @@ class _ControlsPanel extends StatelessWidget {
           _SliderRow(
             label: 'Time scale',
             value: timeScale,
-            min: 0.6,
-            max: 1.8,
-            divisions: 12,
+            min: 0.4,
+            max: 1.2,
+            divisions: 8,
             valueLabel: timeScale.toStringAsFixed(2),
             onChanged: onTimeScaleChanged,
           ),
           _SliderRow(
-            label: 'Swirl',
+            label: 'Micro turbulence',
             value: swirl,
-            min: 0.8,
-            max: 2.0,
-            divisions: 24,
+            min: 0.04,
+            max: 0.32,
+            divisions: 14,
             valueLabel: swirl.toStringAsFixed(2),
             onChanged: onSwirlChanged,
           ),
           _SliderRow(
-            label: 'Center pull',
+            label: 'Star drift',
             value: centerPull,
-            min: 1.0,
-            max: 2.4,
-            divisions: 28,
+            min: 0.02,
+            max: 0.16,
+            divisions: 14,
             valueLabel: centerPull.toStringAsFixed(2),
             onChanged: onCenterPullChanged,
           ),
@@ -866,7 +866,7 @@ class _BenchmarkNotesPanel extends StatelessWidget {
           const _NoteRow(
             icon: Icons.balance,
             text:
-                'Compare mode reseeds both backends together so they start from the same particle field.',
+                'Compare mode reseeds both backends together so they start from the same calm starfield.',
           ),
           const _NoteRow(
             icon: Icons.call_merge,
@@ -908,7 +908,7 @@ class _GalaxyPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final rect = Offset.zero & size;
     final center = rect.center;
-    final scale = math.min(size.width, size.height) * 0.42;
+    final scale = math.min(size.width, size.height) * 0.46;
 
     final backgroundPaint =
         Paint()
@@ -916,24 +916,46 @@ class _GalaxyPainter extends CustomPainter {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: <Color>[
-              Color(0xFF03060C),
-              Color(0xFF050A13),
-              Color(0xFF090D19),
+              Color(0xFF02040A),
+              Color(0xFF06101A),
+              Color(0xFF10121F),
             ],
           ).createShader(rect);
     canvas.drawRect(rect, backgroundPaint);
 
-    final haloPaint =
+    final nebulaPaint =
         Paint()
           ..shader = RadialGradient(
             colors: <Color>[
-              const Color(0xFFFFE29A).withValues(alpha: 0.24),
-              const Color(0xFF4FD5FF).withValues(alpha: 0.12),
+              const Color(0xFF64D2FF).withValues(alpha: 0.16),
+              const Color(0xFFB6F08A).withValues(alpha: 0.06),
               Colors.transparent,
             ],
-            stops: const <double>[0.0, 0.28, 1.0],
-          ).createShader(Rect.fromCircle(center: center, radius: scale * 0.92));
-    canvas.drawCircle(center, scale * 0.92, haloPaint);
+            stops: const <double>[0.0, 0.34, 1.0],
+          ).createShader(
+            Rect.fromCircle(
+              center: Offset(size.width * 0.32, size.height * 0.42),
+              radius: scale * 0.9,
+            ),
+          );
+    canvas.drawRect(rect, nebulaPaint);
+
+    final dustPaint =
+        Paint()
+          ..shader = RadialGradient(
+            colors: <Color>[
+              const Color(0xFFFFD37A).withValues(alpha: 0.09),
+              const Color(0xFF7C8CFF).withValues(alpha: 0.05),
+              Colors.transparent,
+            ],
+            stops: const <double>[0.0, 0.38, 1.0],
+          ).createShader(
+            Rect.fromCircle(
+              center: Offset(size.width * 0.72, size.height * 0.62),
+              radius: scale * 0.82,
+            ),
+          );
+    canvas.drawRect(rect, dustPaint);
 
     final visibleValueCount = math.min(
       particles.length,
@@ -950,25 +972,26 @@ class _GalaxyPainter extends CustomPainter {
       final vx = particles[offset + 2].toDouble();
       final vy = particles[offset + 3].toDouble();
       final position = Offset(center.dx + x * scale, center.dy + y * scale);
-      final distance = math.sqrt((x * x) + (y * y)).clamp(0.0, 1.25);
-      final speed = math.min(math.sqrt((vx * vx) + (vy * vy)), 2.0);
-      final warmth = (1.0 - (distance / 1.25)).clamp(0.0, 1.0);
-      final hue = lerpDouble(195, 40, warmth)!;
-      final saturation = lerpDouble(0.52, 0.78, warmth)!;
-      final lightness = lerpDouble(0.55, 0.76, speed / 2.0)!;
+      final particleIndex = offset ~/ galaxyParticleStride;
+      final depth = _fractional((particleIndex + 1) * 0.38196601125);
+      final warmth = _fractional((particleIndex + 1) * 0.2360679775);
+      final speed = math.min(math.sqrt((vx * vx) + (vy * vy)) * 20, 1.0);
+      final hue = warmth > 0.88 ? 42.0 : lerpDouble(198, 228, depth)!;
+      final saturation = warmth > 0.88 ? 0.74 : lerpDouble(0.26, 0.56, depth)!;
+      final lightness = lerpDouble(0.54, 0.82, depth)!;
       final glowColor =
           HSLColor.fromAHSL(
-            0.22 + (warmth * 0.28),
+            0.18 + (depth * 0.28),
             hue,
             saturation,
-            lightness,
+            (lightness + speed * 0.08).clamp(0.0, 1.0),
           ).toColor();
-      final radius = 0.9 + (speed * 0.55) + (warmth * 0.65);
+      final radius = lerpDouble(0.45, 1.18, depth)! + speed * 0.18;
 
       canvas.drawCircle(
         position,
-        radius * 2.4,
-        Paint()..color = glowColor.withValues(alpha: 0.08),
+        radius * 2.1,
+        Paint()..color = glowColor.withValues(alpha: 0.045),
       );
       canvas.drawCircle(position, radius, Paint()..color = glowColor);
     }
@@ -1185,3 +1208,5 @@ String _formatCompactCount(int value) {
   }
   return value.toString();
 }
+
+double _fractional(double value) => value - value.floorToDouble();

@@ -7,10 +7,10 @@ import 'package:ffi/ffi.dart';
 
 enum GalaxyComputeBackend { dart, cFfi }
 
-const double _galaxySoftening = 0.025;
-const double _galaxyCenterEpsilon = 0.0016;
 const double _goldenRatioFraction = 0.61803398875;
 const double _secondaryFraction = 0.75487766625;
+const double _tertiaryFraction = 0.41421356237;
+const double _quaternaryFraction = 0.56984029099;
 
 double _fractional(double value) => value - value.floorToDouble();
 
@@ -20,18 +20,16 @@ void respawnGalaxyParticle(
   GalaxyStepConfig config = const GalaxyStepConfig(),
 }) {
   final offset = particleIndex * galaxyParticleStride;
-  final angleSeed = _fractional((particleIndex + 1) * _goldenRatioFraction);
-  final radiusSeed = _fractional((particleIndex + 1) * _secondaryFraction);
-  final angle = angleSeed * math.pi * 2.0;
-  final radius = config.respawnRadius * (0.32 + radiusSeed * 0.68);
-  final sinAngle = math.sin(angle);
-  final cosAngle = math.cos(angle);
-  final tangentialSpeed = config.swirl * (0.22 + radius * 0.4);
+  final xSeed = _fractional((particleIndex + 1) * _goldenRatioFraction);
+  final ySeed = _fractional((particleIndex + 1) * _secondaryFraction);
+  final vxSeed = _fractional((particleIndex + 1) * _tertiaryFraction);
+  final vySeed = _fractional((particleIndex + 1) * _quaternaryFraction);
 
-  particles[offset] = (cosAngle * radius).toDouble();
-  particles[offset + 1] = (sinAngle * radius).toDouble();
-  particles[offset + 2] = (-sinAngle * tangentialSpeed).toDouble();
-  particles[offset + 3] = (cosAngle * tangentialSpeed).toDouble();
+  particles[offset] = ((xSeed * 2.0) - 1.0) * config.respawnRadius;
+  particles[offset + 1] = ((ySeed * 2.0) - 1.0) * config.respawnRadius;
+  particles[offset + 2] =
+      0.010 + (vxSeed - 0.5) * 0.030 + config.centerPull * 0.010;
+  particles[offset + 3] = (vySeed - 0.5) * 0.022;
 }
 
 void seedGalaxyParticles(
@@ -62,7 +60,6 @@ void stepGalaxyParticlesDart(
   }
 
   final safeDt = math.min(dtSeconds, 0.05);
-  final escapeRadiusSquared = config.escapeRadius * config.escapeRadius;
 
   for (var index = 0; index < particleCount; index++) {
     final offset = index * galaxyParticleStride;
@@ -70,19 +67,18 @@ void stepGalaxyParticlesDart(
     var y = particles[offset + 1].toDouble();
     var vx = particles[offset + 2].toDouble();
     var vy = particles[offset + 3].toDouble();
-    final radiusSquared = x * x + y * y;
 
-    if (radiusSquared > escapeRadiusSquared ||
-        radiusSquared < _galaxyCenterEpsilon) {
+    if (x.abs() > config.escapeRadius || y.abs() > config.escapeRadius) {
       respawnGalaxyParticle(particles, index, config: config);
       continue;
     }
 
-    final inverseRadius = 1.0 / math.sqrt(radiusSquared + _galaxySoftening);
-    final radialAcceleration = config.centerPull * inverseRadius;
-    final tangentialAcceleration = config.swirl * (0.35 + inverseRadius * 0.45);
-    final ax = (-x * radialAcceleration) - (y * tangentialAcceleration);
-    final ay = (-y * radialAcceleration) + (x * tangentialAcceleration);
+    final phase = (index + 1) * 0.031;
+    final turbulenceX = math.sin((y * 3.7) + phase);
+    final turbulenceY = math.cos((x * 2.9) - phase);
+    final ax =
+        (config.centerPull * 0.018) + (turbulenceX * config.swirl * 0.010);
+    final ay = turbulenceY * config.swirl * 0.008;
 
     vx = (vx * config.damping) + (ax * safeDt);
     vy = (vy * config.damping) + (ay * safeDt);

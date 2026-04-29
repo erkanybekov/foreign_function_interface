@@ -3,29 +3,23 @@
 #include <ctype.h>
 #include <math.h>
 
-#define BANK_GALAXY_SOFTENING 0.025f
-#define BANK_GALAXY_CENTER_EPSILON 0.0016f
-#define BANK_PI 3.14159265358979323846f
-
 static float bank_fractional(float value) { return value - floorf(value); }
 
 static void bank_respawn_galaxy_particle(
     float* particle,
     int32_t index,
     float respawn_radius,
-    float swirl) {
-  const float angle_seed = bank_fractional(((float)index + 1.0f) * 0.61803398875f);
-  const float radius_seed = bank_fractional(((float)index + 1.0f) * 0.75487766625f);
-  const float angle = angle_seed * 2.0f * BANK_PI;
-  const float radius = respawn_radius * (0.32f + radius_seed * 0.68f);
-  const float sin_angle = sinf(angle);
-  const float cos_angle = cosf(angle);
-  const float tangential_speed = swirl * (0.22f + radius * 0.4f);
+    float center_pull) {
+  const float seed = (float)index + 1.0f;
+  const float x_seed = bank_fractional(seed * 0.61803398875f);
+  const float y_seed = bank_fractional(seed * 0.75487766625f);
+  const float vx_seed = bank_fractional(seed * 0.41421356237f);
+  const float vy_seed = bank_fractional(seed * 0.56984029099f);
 
-  particle[0] = cos_angle * radius;
-  particle[1] = sin_angle * radius;
-  particle[2] = -sin_angle * tangential_speed;
-  particle[3] = cos_angle * tangential_speed;
+  particle[0] = ((x_seed * 2.0f) - 1.0f) * respawn_radius;
+  particle[1] = ((y_seed * 2.0f) - 1.0f) * respawn_radius;
+  particle[2] = 0.010f + (vx_seed - 0.5f) * 0.030f + center_pull * 0.010f;
+  particle[3] = (vy_seed - 0.5f) * 0.022f;
 }
 
 static void bank_update_galaxy_particles_once(
@@ -38,7 +32,6 @@ static void bank_update_galaxy_particles_once(
     float escape_radius,
     float respawn_radius) {
   const float safe_dt = fminf(dt_seconds, 0.05f);
-  const float escape_radius_squared = escape_radius * escape_radius;
 
   for (int32_t index = 0; index < particle_count; index++) {
     float* particle = particles + (index * BANK_GALAXY_PARTICLE_STRIDE);
@@ -46,20 +39,17 @@ static void bank_update_galaxy_particles_once(
     float y = particle[1];
     float vx = particle[2];
     float vy = particle[3];
-    const float radius_squared = x * x + y * y;
 
-    if (radius_squared > escape_radius_squared ||
-        radius_squared < BANK_GALAXY_CENTER_EPSILON) {
-      bank_respawn_galaxy_particle(particle, index, respawn_radius, swirl);
+    if (fabsf(x) > escape_radius || fabsf(y) > escape_radius) {
+      bank_respawn_galaxy_particle(particle, index, respawn_radius, center_pull);
       continue;
     }
 
-    const float inverse_radius = 1.0f / sqrtf(radius_squared + BANK_GALAXY_SOFTENING);
-    const float radial_acceleration = center_pull * inverse_radius;
-    const float tangential_acceleration =
-        swirl * (0.35f + inverse_radius * 0.45f);
-    const float ax = (-x * radial_acceleration) - (y * tangential_acceleration);
-    const float ay = (-y * radial_acceleration) + (x * tangential_acceleration);
+    const float phase = ((float)index + 1.0f) * 0.031f;
+    const float turbulence_x = sinf((y * 3.7f) + phase);
+    const float turbulence_y = cosf((x * 2.9f) - phase);
+    const float ax = (center_pull * 0.018f) + (turbulence_x * swirl * 0.010f);
+    const float ay = turbulence_y * swirl * 0.008f;
 
     vx = (vx * damping) + (ax * safe_dt);
     vy = (vy * damping) + (ay * safe_dt);

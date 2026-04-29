@@ -132,7 +132,7 @@ class _HomeShellState extends State<_HomeShell> {
           ),
           NavigationDestination(
             icon: Icon(Icons.blur_on),
-            label: 'Galaxy Benchmark',
+            label: 'Cosmos Benchmark',
           ),
         ],
         onDestinationSelected: (index) {

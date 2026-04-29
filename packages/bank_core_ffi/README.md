@@ -1,6 +1,6 @@
 # bank_core_ffi
 
-Local Flutter FFI plugin used by the Bank FFI Lab app and its galaxy benchmark.
+Local Flutter FFI plugin used by the Bank FFI Lab app and its cosmos benchmark.
 
 The native implementation lives in `src/bank_core_ffi.c` and is exposed through `src/bank_core_ffi.h`. The Dart facade in `lib/bank_core_ffi.dart` owns all pointer allocation/freeing and exposes a small banking-oriented API:
 

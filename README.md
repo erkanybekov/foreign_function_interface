@@ -10,13 +10,13 @@ The app depends on the local FFI plugin in `packages/bank_core_ffi`. The plugin 
 - Native string inputs: PAN/Luhn and IBAN MOD-97 validation through `char*`.
 - Native structs: transaction risk input and output structs allocated by Dart.
 - Error mapping: negative native error codes become Dart exceptions/messages.
-- Batched native compute: a galaxy particle simulation where Flutter keeps the renderer and the compute backend switches between pure Dart and C via FFI.
+- Batched native compute: a calm cosmos particle simulation where Flutter keeps the renderer and the compute backend switches between pure Dart and C via FFI.
 - Banking guardrails: no custom crypto, no PII logging, and FFI as a wrapper for audited native SDKs or libraries.
 
 ## App Screens
 
 - `Bank Lab`: strings, structs, error mapping, and banking-oriented FFI examples.
-- `Galaxy Benchmark`: the same visual layer with two compute backends, measuring step time, tick rate, and particles per second.
+- `Cosmos Benchmark`: the same visual layer with two compute backends, measuring step time, tick rate, and particle updates per second.
 
 ## Run
 

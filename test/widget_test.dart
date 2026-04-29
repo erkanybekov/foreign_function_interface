@@ -20,7 +20,7 @@ void main() {
     expect(find.textContaining('FFI lets Flutter call native'), findsOneWidget);
     expect(find.text('Bank Lab'), findsOneWidget);
     expect(find.text('AntiFraud Fit'), findsOneWidget);
-    expect(find.text('Galaxy Benchmark'), findsOneWidget);
+    expect(find.text('Cosmos Benchmark'), findsOneWidget);
 
     await tester.tap(find.text('Bank Lab'));
     await tester.pumpAndSettle();
@@ -49,7 +49,7 @@ void main() {
     expect(find.text('PAN INVALID'), findsOneWidget);
   });
 
-  testWidgets('Galaxy benchmark opens in compare mode', (
+  testWidgets('Cosmos benchmark opens in compare mode', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
@@ -60,11 +60,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Galaxy Benchmark'));
+    await tester.tap(find.text('Cosmos Benchmark'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 32));
 
-    expect(find.text('Galaxy Benchmark'), findsWidgets);
+    expect(find.text('Cosmos Benchmark'), findsWidgets);
     expect(find.text('Benchmark lesson'), findsOneWidget);
     expect(find.text('Reset field'), findsOneWidget);
     expect(find.text('Compare mode'), findsOneWidget);
