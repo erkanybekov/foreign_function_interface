@@ -173,13 +173,13 @@ class _GalaxyBenchmarkPageState extends State<GalaxyBenchmarkPage>
     return (previous * 0.88) + (next * 0.12);
   }
 
-  String _compareSummary() {
+  _BenchmarkVerdict _benchmarkVerdict() {
     final dartStepMicros =
         _scenes[GalaxyComputeBackend.dart]!.smoothedStepMicros;
     final ffiStepMicros =
         _scenes[GalaxyComputeBackend.cFfi]!.smoothedStepMicros;
     if (dartStepMicros <= 0 || ffiStepMicros <= 0) {
-      return 'Warming';
+      return const _BenchmarkVerdict.warming();
     }
 
     final fasterKind =
@@ -196,12 +196,13 @@ class _GalaxyBenchmarkPageState extends State<GalaxyBenchmarkPage>
             : ffiStepMicros;
     final gain = ((slowerMicros - fasterMicros) / slowerMicros) * 100;
 
-    return '${_backendShortLabel(fasterKind)} +${gain.toStringAsFixed(1)}%';
+    return _BenchmarkVerdict.ready(winner: fasterKind, gainPercent: gain);
   }
 
   @override
   Widget build(BuildContext context) {
     final tickFps = 1000000 / _smoothedFrameMicros;
+    final verdict = _benchmarkVerdict();
 
     return Scaffold(
       appBar: AppBar(
@@ -220,6 +221,8 @@ class _GalaxyBenchmarkPageState extends State<GalaxyBenchmarkPage>
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: <Widget>[
+          _BenchmarkLessonPanel(verdict: verdict),
+          const SizedBox(height: 12),
           _OverviewPanel(
             viewMode: _viewMode,
             particleCount: _particleCount,
@@ -229,7 +232,7 @@ class _GalaxyBenchmarkPageState extends State<GalaxyBenchmarkPage>
             ),
             substepsPerSample: _substepsPerSample,
             tickFps: tickFps,
-            compareSummary: _compareSummary(),
+            compareSummary: verdict.summary,
           ),
           const SizedBox(height: 12),
           _SceneGrid(
@@ -357,6 +360,126 @@ class _BenchmarkSceneState {
       return next;
     }
     return (previous * 0.88) + (next * 0.12);
+  }
+}
+
+class _BenchmarkVerdict {
+  const _BenchmarkVerdict.warming()
+    : isReady = false,
+      winner = null,
+      gainPercent = 0;
+
+  const _BenchmarkVerdict.ready({
+    required GalaxyComputeBackend this.winner,
+    required this.gainPercent,
+  }) : isReady = true;
+
+  final bool isReady;
+  final GalaxyComputeBackend? winner;
+  final double gainPercent;
+
+  String get summary {
+    if (!isReady) {
+      return 'Warming';
+    }
+    return '${_backendShortLabel(winner!)} wins';
+  }
+
+  String get title {
+    if (!isReady) {
+      return 'Benchmark is warming up';
+    }
+    if (winner == GalaxyComputeBackend.dart) {
+      return 'Dart wins in this workload';
+    }
+    return 'C FFI wins in this workload';
+  }
+
+  String get body {
+    if (!isReady) {
+      return 'Wait for a few frames before reading the numbers.';
+    }
+    if (winner == GalaxyComputeBackend.dart) {
+      return 'This is expected: the math is simple, Dart AOT is fast, and FFI still has boundary cost. FFI is not an automatic speed button.';
+    }
+    return 'Here the native batch is large enough to pay for the FFI boundary and still come out ahead.';
+  }
+
+  String get gainLabel {
+    if (!isReady) {
+      return 'collecting samples';
+    }
+    return '${gainPercent.toStringAsFixed(1)}% faster';
+  }
+}
+
+class _BenchmarkLessonPanel extends StatelessWidget {
+  const _BenchmarkLessonPanel({required this.verdict});
+
+  final _BenchmarkVerdict verdict;
+
+  @override
+  Widget build(BuildContext context) {
+    return _Panel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Icon(Icons.school, color: Theme.of(context).colorScheme.primary),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Benchmark lesson',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+              ),
+              Chip(
+                label: Text(verdict.gainLabel),
+                visualDensity: VisualDensity.compact,
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(verdict.title, style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 6),
+          Text(verdict.body, style: Theme.of(context).textTheme.bodyMedium),
+          const SizedBox(height: 12),
+          const Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: <Widget>[
+              _LessonChip(
+                icon: Icons.check_circle,
+                text: 'Good for native SDKs',
+              ),
+              _LessonChip(icon: Icons.call_merge, text: 'Batch native work'),
+              _LessonChip(icon: Icons.warning_amber, text: 'Avoid tiny calls'),
+              _LessonChip(
+                icon: Icons.rocket_launch,
+                text: 'Measure release builds',
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LessonChip extends StatelessWidget {
+  const _LessonChip({required this.icon, required this.text});
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Chip(
+      avatar: Icon(icon, size: 18),
+      label: Text(text),
+      visualDensity: VisualDensity.compact,
+    );
   }
 }
 
@@ -758,7 +881,12 @@ class _BenchmarkNotesPanel extends StatelessWidget {
           const _NoteRow(
             icon: Icons.warning_amber,
             text:
-                'This compares simulation-step cost, not shader throughput, GPU time, or full app power usage.',
+                'If Dart wins here, the correct lesson is: keep simple logic in Dart.',
+          ),
+          const _NoteRow(
+            icon: Icons.inventory_2,
+            text:
+                'Use FFI when native code gives you a capability: SDK, audited library, hardware API, or existing engine.',
           ),
         ],
       ),

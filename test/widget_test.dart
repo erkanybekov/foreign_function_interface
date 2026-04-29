@@ -16,8 +16,16 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Bank FFI Lab'), findsOneWidget);
+    expect(find.text('FFI Guide'), findsOneWidget);
+    expect(find.textContaining('FFI lets Flutter call native'), findsOneWidget);
+    expect(find.text('Bank Lab'), findsOneWidget);
+    expect(find.text('AntiFraud Fit'), findsOneWidget);
     expect(find.text('Galaxy Benchmark'), findsOneWidget);
+
+    await tester.tap(find.text('Bank Lab'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Bank FFI Lab'), findsOneWidget);
     expect(find.textContaining('Native banking core'), findsOneWidget);
     expect(find.text('PAN VALID'), findsOneWidget);
     expect(find.text('IBAN VALID'), findsOneWidget);
@@ -30,6 +38,9 @@ void main() {
         benchmarkBackendBuilder: _fakeBenchmarkBackendBuilder,
       ),
     );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Bank Lab'));
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextField).first, '1234');
@@ -54,10 +65,35 @@ void main() {
     await tester.pump(const Duration(milliseconds: 32));
 
     expect(find.text('Galaxy Benchmark'), findsWidgets);
+    expect(find.text('Benchmark lesson'), findsOneWidget);
     expect(find.text('Reset field'), findsOneWidget);
     expect(find.text('Compare mode'), findsOneWidget);
-    expect(find.text('Pure Dart'), findsWidgets);
-    expect(find.text('C via FFI'), findsWidgets);
+    expect(find.text('Pure Dart', skipOffstage: false), findsWidgets);
+    expect(find.text('C via FFI', skipOffstage: false), findsWidgets);
+  });
+
+  testWidgets('AntiFraud fit screen explains where FFI belongs', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MyApp(
+        service: _FakeBankLabService(),
+        benchmarkBackendBuilder: _fakeBenchmarkBackendBuilder,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('AntiFraud Fit'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('AntiFraud FFI Fit'), findsOneWidget);
+    expect(find.textContaining('server-side fraud analytics'), findsOneWidget);
+
+    await tester.scrollUntilVisible(find.text('Fit matrix'), 300);
+    expect(find.text('Fit matrix'), findsOneWidget);
+
+    await tester.scrollUntilVisible(find.text('Bad idea'), 300);
+    expect(find.text('Bad idea'), findsOneWidget);
   });
 }
 

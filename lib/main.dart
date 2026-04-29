@@ -94,7 +94,25 @@ class _HomeShellState extends State<_HomeShell> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: switch (_selectedIndex) {
-        0 => BankFfiLabPage(service: widget.service),
+        0 => FfiGuidePage(
+          onOpenBankLab: () {
+            setState(() {
+              _selectedIndex = 1;
+            });
+          },
+          onOpenAntiFraud: () {
+            setState(() {
+              _selectedIndex = 2;
+            });
+          },
+          onOpenBenchmark: () {
+            setState(() {
+              _selectedIndex = 3;
+            });
+          },
+        ),
+        1 => BankFfiLabPage(service: widget.service),
+        2 => const AntiFraudFfiFitPage(),
         _ => GalaxyBenchmarkPage(
           core: widget.core,
           backendBuilder: widget.benchmarkBackendBuilder,
@@ -103,9 +121,14 @@ class _HomeShellState extends State<_HomeShell> {
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
         destinations: const <NavigationDestination>[
+          NavigationDestination(icon: Icon(Icons.route), label: 'Guide'),
           NavigationDestination(
             icon: Icon(Icons.account_balance),
             label: 'Bank Lab',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.shield),
+            label: 'AntiFraud Fit',
           ),
           NavigationDestination(
             icon: Icon(Icons.blur_on),
@@ -116,6 +139,487 @@ class _HomeShellState extends State<_HomeShell> {
           setState(() {
             _selectedIndex = index;
           });
+        },
+      ),
+    );
+  }
+}
+
+class FfiGuidePage extends StatelessWidget {
+  const FfiGuidePage({
+    super.key,
+    required this.onOpenBankLab,
+    required this.onOpenAntiFraud,
+    required this.onOpenBenchmark,
+  });
+
+  final VoidCallback onOpenBankLab;
+  final VoidCallback onOpenAntiFraud;
+  final VoidCallback onOpenBenchmark;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('FFI Guide'),
+        backgroundColor: theme.colorScheme.surface,
+        surfaceTintColor: theme.colorScheme.surfaceTint,
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: <Widget>[
+          _GuideHeroPanel(
+            onOpenBankLab: onOpenBankLab,
+            onOpenAntiFraud: onOpenAntiFraud,
+            onOpenBenchmark: onOpenBenchmark,
+          ),
+          const SizedBox(height: 12),
+          const _GuideFlowPanel(),
+          const SizedBox(height: 12),
+          const _GuideApplicationsPanel(),
+          const SizedBox(height: 12),
+          const _GuideDecisionPanel(),
+        ],
+      ),
+    );
+  }
+}
+
+class _GuideHeroPanel extends StatelessWidget {
+  const _GuideHeroPanel({
+    required this.onOpenBankLab,
+    required this.onOpenAntiFraud,
+    required this.onOpenBenchmark,
+  });
+
+  final VoidCallback onOpenBankLab;
+  final VoidCallback onOpenAntiFraud;
+  final VoidCallback onOpenBenchmark;
+
+  @override
+  Widget build(BuildContext context) {
+    return _Panel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Icon(Icons.route, color: Theme.of(context).colorScheme.primary),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'What FFI is for',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'FFI lets Flutter call native C ABI code. Use it to reuse native libraries or SDKs. Do not expect automatic speedups for simple Dart loops.',
+            style: Theme.of(context).textTheme.bodyLarge,
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: const <Widget>[
+              _GuidePill(icon: Icons.link, text: 'Bridge to native code'),
+              _GuidePill(icon: Icons.inventory_2, text: 'Wrap vendor SDKs'),
+              _GuidePill(icon: Icons.call_merge, text: 'Batch heavy work'),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: <Widget>[
+              FilledButton.icon(
+                onPressed: onOpenBankLab,
+                icon: const Icon(Icons.account_balance),
+                label: const Text('Open Bank Lab'),
+              ),
+              OutlinedButton.icon(
+                onPressed: onOpenAntiFraud,
+                icon: const Icon(Icons.shield),
+                label: const Text('Open AntiFraud Fit'),
+              ),
+              OutlinedButton.icon(
+                onPressed: onOpenBenchmark,
+                icon: const Icon(Icons.speed),
+                label: const Text('Open Benchmark Lesson'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GuideFlowPanel extends StatelessWidget {
+  const _GuideFlowPanel();
+
+  static const List<({IconData icon, String title, String body})> steps = [
+    (
+      icon: Icons.input,
+      title: '1. Dart prepares data',
+      body: 'Values become int32, char*, struct*, or a native buffer.',
+    ),
+    (
+      icon: Icons.memory,
+      title: '2. FFI crosses the boundary',
+      body: 'Dart calls an exported C ABI symbol from a native library.',
+    ),
+    (
+      icon: Icons.precision_manufacturing,
+      title: '3. Native code works',
+      body: 'C, Rust, or a vendor SDK validates, scores, scans, or computes.',
+    ),
+    (
+      icon: Icons.output,
+      title: '4. Dart maps the result',
+      body: 'Return codes become booleans, exceptions, or domain objects.',
+    ),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return _GuideGridPanel(title: 'Step by step', children: steps);
+  }
+}
+
+class _GuideApplicationsPanel extends StatelessWidget {
+  const _GuideApplicationsPanel();
+
+  static const List<({IconData icon, String title, String body})> steps = [
+    (
+      icon: Icons.security,
+      title: 'Fraud / device SDK',
+      body: 'Use FFI when the bank already has a native risk SDK.',
+    ),
+    (
+      icon: Icons.document_scanner,
+      title: 'OCR / document scan',
+      body: 'Wrap native scanning engines for ID, card, or document flows.',
+    ),
+    (
+      icon: Icons.enhanced_encryption,
+      title: 'Audited crypto wrapper',
+      body:
+          'Call verified native crypto or HSM client libraries. Do not invent crypto.',
+    ),
+    (
+      icon: Icons.speed,
+      title: 'Risk engine',
+      body: 'Batch transaction scoring when a native engine already exists.',
+    ),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return _GuideGridPanel(title: 'Banking applications', children: steps);
+  }
+}
+
+class _GuideDecisionPanel extends StatelessWidget {
+  const _GuideDecisionPanel();
+
+  @override
+  Widget build(BuildContext context) {
+    return _Panel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text('Decision rule', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 12),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final narrow = constraints.maxWidth < 680;
+              final width =
+                  narrow
+                      ? constraints.maxWidth
+                      : (constraints.maxWidth - 12) / 2;
+              return Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: <Widget>[
+                  SizedBox(
+                    width: width,
+                    child: const _DecisionColumn(
+                      icon: Icons.check_circle,
+                      title: 'Use FFI when',
+                      items: <String>[
+                        'There is an existing C, C++, Rust, or vendor library.',
+                        'The native call can process data in batches.',
+                        'You need platform SDKs that Dart cannot call directly.',
+                      ],
+                    ),
+                  ),
+                  SizedBox(
+                    width: width,
+                    child: const _DecisionColumn(
+                      icon: Icons.cancel,
+                      title: 'Avoid FFI when',
+                      items: <String>[
+                        'The logic is simple and already fast in Dart.',
+                        'You would call native code once per tiny item.',
+                        'You need Flutter web support for the same path.',
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GuideGridPanel extends StatelessWidget {
+  const _GuideGridPanel({required this.title, required this.children});
+
+  final String title;
+  final List<({IconData icon, String title, String body})> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return _Panel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(title, style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 12),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final narrow = constraints.maxWidth < 680;
+              final width =
+                  narrow
+                      ? constraints.maxWidth
+                      : (constraints.maxWidth - 12) / 2;
+              return Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children:
+                    children
+                        .map(
+                          (item) => SizedBox(
+                            width: width,
+                            child: _GuideTile(
+                              icon: item.icon,
+                              title: item.title,
+                              body: item.body,
+                            ),
+                          ),
+                        )
+                        .toList(),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class AntiFraudFfiFitPage extends StatelessWidget {
+  const AntiFraudFfiFitPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('AntiFraud FFI Fit'),
+        backgroundColor: theme.colorScheme.surface,
+        surfaceTintColor: theme.colorScheme.surfaceTint,
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: <Widget>[
+          const _AntiFraudHeroPanel(),
+          const SizedBox(height: 12),
+          const _AntiFraudFlowPanel(),
+          const SizedBox(height: 12),
+          const _AntiFraudFitMatrixPanel(),
+          const SizedBox(height: 12),
+          const _AntiFraudDecisionPanel(),
+        ],
+      ),
+    );
+  }
+}
+
+class _AntiFraudHeroPanel extends StatelessWidget {
+  const _AntiFraudHeroPanel();
+
+  @override
+  Widget build(BuildContext context) {
+    return _Panel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Icon(Icons.shield, color: Theme.of(context).colorScheme.primary),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'BI.ZONE AntiFraud: where FFI fits',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Think of BI.ZONE AntiFraud as server-side fraud analytics. Flutter FFI is useful only for client-side native SDK pieces: device signals, local scanning, native crypto wrappers, or offline model code.',
+            style: Theme.of(context).textTheme.bodyLarge,
+          ),
+          const SizedBox(height: 12),
+          const Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: <Widget>[
+              _GuidePill(icon: Icons.check_circle, text: 'Good: native SDK'),
+              _GuidePill(icon: Icons.call_merge, text: 'Good: batched signals'),
+              _GuidePill(icon: Icons.cancel, text: 'Bad: server rules in app'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AntiFraudFlowPanel extends StatelessWidget {
+  const _AntiFraudFlowPanel();
+
+  static const List<({IconData icon, String title, String body})> steps = [
+    (
+      icon: Icons.phone_iphone,
+      title: '1. App collects safe signals',
+      body: 'Device integrity, session metadata, app version, risk hints.',
+    ),
+    (
+      icon: Icons.memory,
+      title: '2. FFI wraps native SDK',
+      body: 'Flutter calls C ABI code from a vendor/device/security library.',
+    ),
+    (
+      icon: Icons.cloud_upload,
+      title: '3. Backend sends event',
+      body: 'Server sends transaction/session data to AntiFraud.',
+    ),
+    (
+      icon: Icons.rule,
+      title: '4. AntiFraud decides',
+      body: 'Rules, models, threat intel, and analysts produce the action.',
+    ),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return _GuideGridPanel(title: 'End-to-end flow', children: steps);
+  }
+}
+
+class _AntiFraudFitMatrixPanel extends StatelessWidget {
+  const _AntiFraudFitMatrixPanel();
+
+  static const List<({IconData icon, String title, String body})> items = [
+    (
+      icon: Icons.fingerprint,
+      title: 'Device signals',
+      body:
+          'Worth it if a native SDK already detects emulator, root, hook, remote control, or device reputation.',
+    ),
+    (
+      icon: Icons.document_scanner,
+      title: 'Document / OCR SDK',
+      body:
+          'Worth it for native ID scan, liveness, card scan, or image pipeline libraries.',
+    ),
+    (
+      icon: Icons.enhanced_encryption,
+      title: 'Crypto / secure storage wrapper',
+      body:
+          'Worth it only for audited libraries or platform SDKs. Do not write custom crypto.',
+    ),
+    (
+      icon: Icons.rule_folder,
+      title: 'Fraud rules and models',
+      body:
+          'Usually not worth it in the app. Keep business rules and model decisions on the server.',
+    ),
+    (
+      icon: Icons.person_search,
+      title: 'User behavior analytics',
+      body:
+          'Collect events in Flutter. Analyze them server-side where the full session context exists.',
+    ),
+    (
+      icon: Icons.speed,
+      title: 'Local scoring',
+      body:
+          'Use only for low-risk hints. Final approve/review/block should stay backend-controlled.',
+    ),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return _GuideGridPanel(title: 'Fit matrix', children: items);
+  }
+}
+
+class _AntiFraudDecisionPanel extends StatelessWidget {
+  const _AntiFraudDecisionPanel();
+
+  @override
+  Widget build(BuildContext context) {
+    return _Panel(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final narrow = constraints.maxWidth < 680;
+          final width =
+              narrow ? constraints.maxWidth : (constraints.maxWidth - 12) / 2;
+          return Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: <Widget>[
+              SizedBox(
+                width: width,
+                child: const _DecisionColumn(
+                  icon: Icons.thumb_up,
+                  title: 'Profitable / sane',
+                  items: <String>[
+                    'Vendor gives a native mobile SDK.',
+                    'The SDK returns compact risk signals.',
+                    'One FFI call collects a batch of signals.',
+                    'Backend still owns final fraud decision.',
+                  ],
+                ),
+              ),
+              SizedBox(
+                width: width,
+                child: const _DecisionColumn(
+                  icon: Icons.warning_amber,
+                  title: 'Bad idea',
+                  items: <String>[
+                    'Moving AntiFraud rules into the app.',
+                    'Trusting client-side approve/block decisions.',
+                    'Sending PAN, passwords, tokens, or secrets to logs.',
+                    'Calling native code for tiny logic already fast in Dart.',
+                  ],
+                ),
+              ),
+            ],
+          );
         },
       ),
     );
@@ -642,6 +1146,125 @@ class _SecurityPanel extends StatelessWidget {
             text: 'Use FFI to wrap audited native SDKs and verified libraries.',
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _GuidePill extends StatelessWidget {
+  const _GuidePill({required this.icon, required this.text});
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Chip(
+      avatar: Icon(icon, size: 18),
+      label: Text(text),
+      visualDensity: VisualDensity.compact,
+    );
+  }
+}
+
+class _GuideTile extends StatelessWidget {
+  const _GuideTile({
+    required this.icon,
+    required this.title,
+    required this.body,
+  });
+
+  final IconData icon;
+  final String title;
+  final String body;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Icon(icon, size: 22, color: Theme.of(context).colorScheme.primary),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    title,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(body),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DecisionColumn extends StatelessWidget {
+  const _DecisionColumn({
+    required this.icon,
+    required this.title,
+    required this.items,
+  });
+
+  final IconData icon;
+  final String title;
+  final List<String> items;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                Icon(
+                  icon,
+                  size: 20,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            for (final item in items)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    const Text('- '),
+                    Expanded(child: Text(item)),
+                  ],
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
