@@ -292,26 +292,52 @@ class _HeaderPanel extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: <Widget>[
-              _MetricChip(
-                label: 'bank_add(1200, 37)',
-                value: '$addResult',
-                icon: Icons.functions,
-              ),
-              _MetricChip(
-                label: 'C ABI',
-                value: 'int32 + char* + struct',
-                icon: Icons.memory,
-              ),
-              _MetricChip(
-                label: 'Error -2',
-                value: errorMessage,
-                icon: Icons.report_gmailerrorred,
-              ),
-            ],
+          Text(
+            'Flutter calls a small C library. Each card below shows one common FFI boundary.',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 12),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final narrow = constraints.maxWidth < 720;
+              final tileWidth =
+                  narrow
+                      ? constraints.maxWidth
+                      : (constraints.maxWidth - 12) / 2;
+              return Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children:
+                    <Widget>[
+                          _FfiPatternTile(
+                            icon: Icons.functions,
+                            title: 'Scalar call',
+                            call: 'bank_add(1200, 37)',
+                            result: '$addResult',
+                          ),
+                          const _FfiPatternTile(
+                            icon: Icons.short_text,
+                            title: 'String call',
+                            call: 'PAN / IBAN -> char*',
+                            result: 'C returns valid / invalid',
+                          ),
+                          const _FfiPatternTile(
+                            icon: Icons.view_in_ar,
+                            title: 'Struct call',
+                            call: 'TransactionRiskInput*',
+                            result: 'C fills RiskScore*',
+                          ),
+                          _FfiPatternTile(
+                            icon: Icons.report_gmailerrorred,
+                            title: 'Error mapping',
+                            call: 'native code -2',
+                            result: errorMessage,
+                          ),
+                        ]
+                        .map((tile) => SizedBox(width: tileWidth, child: tile))
+                        .toList(),
+              );
+            },
           ),
         ],
       ),
@@ -341,14 +367,20 @@ class _ValidationPanel extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Text(
-            'Native validators',
+            '1. Strings: native validators',
             style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Dart sends UTF-8 strings to C. C checks the value and returns 1 or 0.',
+            style: Theme.of(context).textTheme.bodyMedium,
           ),
           const SizedBox(height: 12),
           TextField(
             controller: panController,
             decoration: InputDecoration(
               labelText: 'PAN / card number',
+              helperText: 'Luhn check in C. Spaces and dashes are accepted.',
               prefixIcon: const Icon(Icons.credit_card),
               suffixIcon: _StatusIcon(valid: panValid),
               border: const OutlineInputBorder(),
@@ -361,6 +393,7 @@ class _ValidationPanel extends StatelessWidget {
             controller: ibanController,
             decoration: InputDecoration(
               labelText: 'IBAN',
+              helperText: 'MOD-97 check in C. Lowercase is normalized.',
               prefixIcon: const Icon(Icons.account_balance_wallet),
               suffixIcon: _StatusIcon(valid: ibanValid),
               border: const OutlineInputBorder(),
@@ -371,7 +404,13 @@ class _ValidationPanel extends StatelessWidget {
           const SizedBox(height: 12),
           Wrap(
             spacing: 8,
+            runSpacing: 8,
             children: <Widget>[
+              const Chip(
+                avatar: Icon(Icons.memory, size: 18),
+                label: Text('Native call: char*'),
+                visualDensity: VisualDensity.compact,
+              ),
               _StatusChip(label: 'PAN', valid: panValid),
               _StatusChip(label: 'IBAN', valid: ibanValid),
             ],
@@ -419,18 +458,27 @@ class _RiskPanel extends StatelessWidget {
             children: <Widget>[
               Expanded(
                 child: Text(
-                  'Struct-based transaction scoring',
+                  '2. Structs: transaction risk',
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
               ),
-              _DecisionBadge(decision: riskScore.decision),
+              const Chip(
+                avatar: Icon(Icons.memory, size: 18),
+                label: Text('struct*'),
+                visualDensity: VisualDensity.compact,
+              ),
             ],
           ),
+          const SizedBox(height: 4),
+          Text(
+            'Dart fills a native input struct. C returns score, decision, and reason flags.',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
           const SizedBox(height: 12),
-          _ScoreBar(score: riskScore.score),
+          _NativeResultCard(riskScore: riskScore),
+          const SizedBox(height: 12),
+          Text('Dart input', style: Theme.of(context).textTheme.labelLarge),
           const SizedBox(height: 8),
-          Text('Risk score: ${riskScore.score}/100'),
-          const SizedBox(height: 12),
           _NumberSlider(
             label: 'Amount',
             valueLabel: _formatMoney(amountCents),
@@ -470,13 +518,21 @@ class _RiskPanel extends StatelessWidget {
             value: nightTime,
             onChanged: onNightTimeChanged,
           ),
+          const SizedBox(height: 8),
+          Text(
+            'Native reason flags',
+            style: Theme.of(context).textTheme.labelLarge,
+          ),
+          const SizedBox(height: 8),
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children:
-                riskScore.flags
-                    .map((flag) => Chip(label: Text(_riskFlagLabel(flag))))
-                    .toList(),
+                riskScore.flags.isEmpty
+                    ? const <Widget>[Chip(label: Text('none'))]
+                    : riskScore.flags
+                        .map((flag) => Chip(label: Text(_riskFlagLabel(flag))))
+                        .toList(),
           ),
         ],
       ),
@@ -609,23 +665,61 @@ class _Panel extends StatelessWidget {
   }
 }
 
-class _MetricChip extends StatelessWidget {
-  const _MetricChip({
-    required this.label,
-    required this.value,
+class _FfiPatternTile extends StatelessWidget {
+  const _FfiPatternTile({
     required this.icon,
+    required this.title,
+    required this.call,
+    required this.result,
   });
 
-  final String label;
-  final String value;
   final IconData icon;
+  final String title;
+  final String call;
+  final String result;
 
   @override
   Widget build(BuildContext context) {
-    return Chip(
-      avatar: Icon(icon, size: 18),
-      label: Text('$label: $value'),
-      visualDensity: VisualDensity.compact,
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Theme.of(
+          context,
+        ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.42),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Icon(icon, size: 22, color: Theme.of(context).colorScheme.primary),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    title,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(call, maxLines: 1, overflow: TextOverflow.ellipsis),
+                  const SizedBox(height: 4),
+                  Text(
+                    result,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -679,6 +773,47 @@ class _DecisionBadge extends StatelessWidget {
       backgroundColor: color.withValues(alpha: 0.12),
       labelStyle: TextStyle(color: color, fontWeight: FontWeight.w700),
       side: BorderSide(color: color.withValues(alpha: 0.35)),
+    );
+  }
+}
+
+class _NativeResultCard extends StatelessWidget {
+  const _NativeResultCard({required this.riskScore});
+
+  final RiskScore riskScore;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                const Icon(Icons.output, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Native output',
+                    style: Theme.of(context).textTheme.labelLarge,
+                  ),
+                ),
+                _DecisionBadge(decision: riskScore.decision),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _ScoreBar(score: riskScore.score),
+            const SizedBox(height: 8),
+            Text('Risk score: ${riskScore.score}/100'),
+          ],
+        ),
+      ),
     );
   }
 }

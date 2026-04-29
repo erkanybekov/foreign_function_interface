@@ -28,6 +28,51 @@ static void bank_respawn_galaxy_particle(
   particle[3] = cos_angle * tangential_speed;
 }
 
+static void bank_update_galaxy_particles_once(
+    float* particles,
+    int32_t particle_count,
+    float dt_seconds,
+    float center_pull,
+    float swirl,
+    float damping,
+    float escape_radius,
+    float respawn_radius) {
+  const float safe_dt = fminf(dt_seconds, 0.05f);
+  const float escape_radius_squared = escape_radius * escape_radius;
+
+  for (int32_t index = 0; index < particle_count; index++) {
+    float* particle = particles + (index * BANK_GALAXY_PARTICLE_STRIDE);
+    float x = particle[0];
+    float y = particle[1];
+    float vx = particle[2];
+    float vy = particle[3];
+    const float radius_squared = x * x + y * y;
+
+    if (radius_squared > escape_radius_squared ||
+        radius_squared < BANK_GALAXY_CENTER_EPSILON) {
+      bank_respawn_galaxy_particle(particle, index, respawn_radius, swirl);
+      continue;
+    }
+
+    const float inverse_radius = 1.0f / sqrtf(radius_squared + BANK_GALAXY_SOFTENING);
+    const float radial_acceleration = center_pull * inverse_radius;
+    const float tangential_acceleration =
+        swirl * (0.35f + inverse_radius * 0.45f);
+    const float ax = (-x * radial_acceleration) - (y * tangential_acceleration);
+    const float ay = (-y * radial_acceleration) + (x * tangential_acceleration);
+
+    vx = (vx * damping) + (ax * safe_dt);
+    vy = (vy * damping) + (ay * safe_dt);
+    x += vx * safe_dt;
+    y += vy * safe_dt;
+
+    particle[0] = x;
+    particle[1] = y;
+    particle[2] = vx;
+    particle[3] = vy;
+  }
+}
+
 FFI_PLUGIN_EXPORT int32_t bank_add(int32_t a, int32_t b) { return a + b; }
 
 FFI_PLUGIN_EXPORT int32_t bank_validate_pan(const char* pan) {
@@ -215,11 +260,34 @@ FFI_PLUGIN_EXPORT int32_t bank_update_galaxy_particles(
     float damping,
     float escape_radius,
     float respawn_radius) {
+  return bank_update_galaxy_particles_batched(
+      particles,
+      particle_count,
+      dt_seconds,
+      center_pull,
+      swirl,
+      damping,
+      escape_radius,
+      respawn_radius,
+      1);
+}
+
+FFI_PLUGIN_EXPORT int32_t bank_update_galaxy_particles_batched(
+    float* particles,
+    int32_t particle_count,
+    float dt_seconds,
+    float center_pull,
+    float swirl,
+    float damping,
+    float escape_radius,
+    float respawn_radius,
+    int32_t substeps) {
   if (particles == 0) {
     return BANK_ERR_NULL_POINTER;
   }
 
   if (particle_count < 0 ||
+      substeps <= 0 ||
       dt_seconds <= 0.0f ||
       center_pull <= 0.0f ||
       swirl <= 0.0f ||
@@ -229,39 +297,16 @@ FFI_PLUGIN_EXPORT int32_t bank_update_galaxy_particles(
     return BANK_ERR_INVALID_ARGUMENT;
   }
 
-  const float safe_dt = fminf(dt_seconds, 0.05f);
-  const float escape_radius_squared = escape_radius * escape_radius;
-
-  for (int32_t index = 0; index < particle_count; index++) {
-    float* particle = particles + (index * BANK_GALAXY_PARTICLE_STRIDE);
-    float x = particle[0];
-    float y = particle[1];
-    float vx = particle[2];
-    float vy = particle[3];
-    const float radius_squared = x * x + y * y;
-
-    if (radius_squared > escape_radius_squared ||
-        radius_squared < BANK_GALAXY_CENTER_EPSILON) {
-      bank_respawn_galaxy_particle(particle, index, respawn_radius, swirl);
-      continue;
-    }
-
-    const float inverse_radius = 1.0f / sqrtf(radius_squared + BANK_GALAXY_SOFTENING);
-    const float radial_acceleration = center_pull * inverse_radius;
-    const float tangential_acceleration =
-        swirl * (0.35f + inverse_radius * 0.45f);
-    const float ax = (-x * radial_acceleration) - (y * tangential_acceleration);
-    const float ay = (-y * radial_acceleration) + (x * tangential_acceleration);
-
-    vx = (vx * damping) + (ax * safe_dt);
-    vy = (vy * damping) + (ay * safe_dt);
-    x += vx * safe_dt;
-    y += vy * safe_dt;
-
-    particle[0] = x;
-    particle[1] = y;
-    particle[2] = vx;
-    particle[3] = vy;
+  for (int32_t step = 0; step < substeps; step++) {
+    bank_update_galaxy_particles_once(
+        particles,
+        particle_count,
+        dt_seconds,
+        center_pull,
+        swirl,
+        damping,
+        escape_radius,
+        respawn_radius);
   }
 
   return BANK_OK;

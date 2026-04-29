@@ -137,6 +137,39 @@ void main() {
       }
     },
   );
+
+  test('native batched galaxy step matches repeated Dart reference steps', () {
+    const config = GalaxyStepConfig(centerPull: 1.7, swirl: 1.4);
+    final reference = Float32List.fromList(<double>[
+      0.80,
+      0.20,
+      0.05,
+      0.18,
+      -0.42,
+      0.58,
+      -0.08,
+      0.12,
+    ]);
+    final native = calloc<ffi.Float>(reference.length);
+    addTearDown(() => calloc.free(native));
+    final nativeView = native.asTypedList(reference.length);
+    nativeView.setAll(0, reference);
+
+    core.updateGalaxyParticlesBatched(
+      particles: native,
+      particleCount: 2,
+      dtSeconds: 1 / 60,
+      substeps: 4,
+      config: config,
+    );
+    for (var step = 0; step < 4; step++) {
+      _stepGalaxyParticlesReference(reference, 2, 1 / 60, config: config);
+    }
+
+    for (var index = 0; index < reference.length; index++) {
+      expect(nativeView[index], closeTo(reference[index], 1e-4));
+    }
+  });
 }
 
 Future<ffi.DynamicLibrary> _compileTestLibrary() async {

@@ -32,6 +32,29 @@ void main() {
     expect(particles[4], isNot(closeTo(before[4], 1e-6)));
   });
 
+  test('stepGalaxyParticlesDartBatched matches repeated single steps', () {
+    final repeated = Float32List.fromList(<double>[
+      0.90,
+      0.10,
+      0.05,
+      0.24,
+      -0.55,
+      0.40,
+      -0.14,
+      0.09,
+    ]);
+    final batched = Float32List.fromList(repeated);
+
+    for (var step = 0; step < 4; step++) {
+      stepGalaxyParticlesDart(repeated, 2, 1 / 60);
+    }
+    stepGalaxyParticlesDartBatched(batched, 2, 1 / 60, substeps: 4);
+
+    for (var index = 0; index < repeated.length; index++) {
+      expect(batched[index], closeTo(repeated[index], 1e-6));
+    }
+  });
+
   test('Dart backend reseeds to the requested particle count', () {
     final backend = DartGalaxySimulationBackend(particleCount: 16);
     addTearDown(backend.dispose);

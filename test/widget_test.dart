@@ -68,7 +68,7 @@ GalaxySimulationBackend _fakeBenchmarkBackendBuilder(
   BankCoreFfi? core,
 ) {
   return DartGalaxySimulationBackend(
-    particleCount: particleCount,
+    particleCount: particleCount > 128 ? 128 : particleCount,
     config: config,
   );
 }

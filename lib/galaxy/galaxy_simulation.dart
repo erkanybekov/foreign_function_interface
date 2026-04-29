@@ -96,6 +96,27 @@ void stepGalaxyParticlesDart(
   }
 }
 
+void stepGalaxyParticlesDartBatched(
+  Float32List particles,
+  int particleCount,
+  double dtSeconds, {
+  required int substeps,
+  GalaxyStepConfig config = const GalaxyStepConfig(),
+}) {
+  if (substeps <= 0) {
+    throw ArgumentError.value(substeps, 'substeps', 'must be positive');
+  }
+
+  for (var step = 0; step < substeps; step++) {
+    stepGalaxyParticlesDart(
+      particles,
+      particleCount,
+      dtSeconds,
+      config: config,
+    );
+  }
+}
+
 abstract class GalaxySimulationBackend {
   GalaxyComputeBackend get kind;
   int get particleCount;
@@ -107,6 +128,11 @@ abstract class GalaxySimulationBackend {
   });
   Duration step(
     double dtSeconds, {
+    GalaxyStepConfig config = const GalaxyStepConfig(),
+  });
+  Duration stepBatch(
+    double dtSeconds, {
+    required int substeps,
     GalaxyStepConfig config = const GalaxyStepConfig(),
   });
   void dispose();
@@ -148,11 +174,21 @@ class DartGalaxySimulationBackend implements GalaxySimulationBackend {
     double dtSeconds, {
     GalaxyStepConfig config = const GalaxyStepConfig(),
   }) {
+    return stepBatch(dtSeconds, substeps: 1, config: config);
+  }
+
+  @override
+  Duration stepBatch(
+    double dtSeconds, {
+    required int substeps,
+    GalaxyStepConfig config = const GalaxyStepConfig(),
+  }) {
     final stopwatch = Stopwatch()..start();
-    stepGalaxyParticlesDart(
+    stepGalaxyParticlesDartBatched(
       _particles,
       _particleCount,
       dtSeconds,
+      substeps: substeps,
       config: config,
     );
     stopwatch.stop();
@@ -212,11 +248,21 @@ class FfiGalaxySimulationBackend implements GalaxySimulationBackend {
     double dtSeconds, {
     GalaxyStepConfig config = const GalaxyStepConfig(),
   }) {
+    return stepBatch(dtSeconds, substeps: 1, config: config);
+  }
+
+  @override
+  Duration stepBatch(
+    double dtSeconds, {
+    required int substeps,
+    GalaxyStepConfig config = const GalaxyStepConfig(),
+  }) {
     final stopwatch = Stopwatch()..start();
-    _core.updateGalaxyParticles(
+    _core.updateGalaxyParticlesBatched(
       particles: pointer,
       particleCount: _particleCount,
       dtSeconds: dtSeconds,
+      substeps: substeps,
       config: config,
     );
     stopwatch.stop();

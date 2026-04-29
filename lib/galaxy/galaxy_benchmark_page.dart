@@ -8,7 +8,9 @@ import 'package:flutter/scheduler.dart';
 
 import 'galaxy_simulation.dart';
 
-const List<int> galaxyParticlePresets = <int>[768, 1536, 3072];
+const List<int> galaxyComputeParticlePresets = <int>[8192, 32768, 65536];
+const List<int> galaxySubstepPresets = <int>[1, 4, 8];
+const int galaxyVisibleParticleLimit = 3072;
 
 enum GalaxyBenchmarkViewMode { compare, single }
 
@@ -39,7 +41,8 @@ class _GalaxyBenchmarkPageState extends State<GalaxyBenchmarkPage>
 
   GalaxyBenchmarkViewMode _viewMode = GalaxyBenchmarkViewMode.compare;
   GalaxyComputeBackend _singleBackendKind = GalaxyComputeBackend.dart;
-  int _particleCount = 1536;
+  int _particleCount = 32768;
+  int _substepsPerSample = 4;
   double _timeScale = 1.0;
   double _swirl = 1.35;
   double _centerPull = 1.6;
@@ -147,7 +150,11 @@ class _GalaxyBenchmarkPageState extends State<GalaxyBenchmarkPage>
     final dtSeconds =
         (rawFrameMicros / 1000000.0).clamp(1 / 240, 1 / 20) * _timeScale;
     for (final scene in _activeScenes) {
-      scene.step(dtSeconds, config: _stepConfig);
+      scene.stepBatch(
+        dtSeconds,
+        substeps: _substepsPerSample,
+        config: _stepConfig,
+      );
     }
 
     _smoothedFrameMicros = _smooth(_smoothedFrameMicros, rawFrameMicros);
@@ -216,6 +223,11 @@ class _GalaxyBenchmarkPageState extends State<GalaxyBenchmarkPage>
           _OverviewPanel(
             viewMode: _viewMode,
             particleCount: _particleCount,
+            visibleParticleCount: math.min(
+              _particleCount,
+              galaxyVisibleParticleLimit,
+            ),
+            substepsPerSample: _substepsPerSample,
             tickFps: tickFps,
             compareSummary: _compareSummary(),
           ),
@@ -224,12 +236,18 @@ class _GalaxyBenchmarkPageState extends State<GalaxyBenchmarkPage>
             scenes: _activeScenes.toList(growable: false),
             repaint: _painterTick,
             particleCount: _particleCount,
+            visibleParticleCount: math.min(
+              _particleCount,
+              galaxyVisibleParticleLimit,
+            ),
+            substepsPerSample: _substepsPerSample,
           ),
           const SizedBox(height: 12),
           _ControlsPanel(
             viewMode: _viewMode,
             backendKind: _singleBackendKind,
             particleCount: _particleCount,
+            substepsPerSample: _substepsPerSample,
             timeScale: _timeScale,
             swirl: _swirl,
             centerPull: _centerPull,
@@ -255,6 +273,12 @@ class _GalaxyBenchmarkPageState extends State<GalaxyBenchmarkPage>
               setState(() {
                 _particleCount = value;
                 _reseedAllScenes();
+              });
+            },
+            onSubstepsChanged: (value) {
+              setState(() {
+                _substepsPerSample = value;
+                _resetMetrics();
               });
             },
             onTimeScaleChanged: (value) {
@@ -290,18 +314,24 @@ class _BenchmarkSceneState {
   final GalaxyComputeBackend kind;
   final GalaxySimulationBackend backend;
   double smoothedStepMicros = 0;
+  double smoothedBatchMicros = 0;
 
   Float32List get particles => backend.particles;
 
-  Duration step(
+  Duration stepBatch(
     double dtSeconds, {
+    required int substeps,
     GalaxyStepConfig config = const GalaxyStepConfig(),
   }) {
-    final duration = backend.step(dtSeconds, config: config);
-    smoothedStepMicros = _smooth(
-      smoothedStepMicros,
-      duration.inMicroseconds.toDouble(),
+    final duration = backend.stepBatch(
+      dtSeconds,
+      substeps: substeps,
+      config: config,
     );
+    final batchMicros = duration.inMicroseconds.toDouble();
+    final stepMicros = batchMicros / substeps;
+    smoothedBatchMicros = _smooth(smoothedBatchMicros, batchMicros);
+    smoothedStepMicros = _smooth(smoothedStepMicros, stepMicros);
     return duration;
   }
 
@@ -315,6 +345,7 @@ class _BenchmarkSceneState {
 
   void resetMetrics() {
     smoothedStepMicros = 0;
+    smoothedBatchMicros = 0;
   }
 
   void dispose() {
@@ -333,12 +364,16 @@ class _OverviewPanel extends StatelessWidget {
   const _OverviewPanel({
     required this.viewMode,
     required this.particleCount,
+    required this.visibleParticleCount,
+    required this.substepsPerSample,
     required this.tickFps,
     required this.compareSummary,
   });
 
   final GalaxyBenchmarkViewMode viewMode;
   final int particleCount;
+  final int visibleParticleCount;
+  final int substepsPerSample;
   final double tickFps;
   final String compareSummary;
 
@@ -360,8 +395,13 @@ class _OverviewPanel extends StatelessWidget {
           value: '${tickFps.toStringAsFixed(1)} fps',
         ),
         _MetricCard(
-          label: 'Particle buffer',
-          value: '$particleCount x $galaxyParticleStride f32',
+          label: 'Compute load',
+          value: '${_formatCompactCount(particleCount)} particles',
+        ),
+        _MetricCard(label: 'Batch size', value: '$substepsPerSample substeps'),
+        _MetricCard(
+          label: 'Drawn particles',
+          value: '${_formatCompactCount(visibleParticleCount)} visible',
         ),
         _MetricCard(label: 'Compare summary', value: compareSummary),
       ],
@@ -374,11 +414,15 @@ class _SceneGrid extends StatelessWidget {
     required this.scenes,
     required this.repaint,
     required this.particleCount,
+    required this.visibleParticleCount,
+    required this.substepsPerSample,
   });
 
   final List<_BenchmarkSceneState> scenes;
   final Listenable repaint;
   final int particleCount;
+  final int visibleParticleCount;
+  final int substepsPerSample;
 
   @override
   Widget build(BuildContext context) {
@@ -402,6 +446,8 @@ class _SceneGrid extends StatelessWidget {
                         scene: scene,
                         repaint: repaint,
                         particleCount: particleCount,
+                        visibleParticleCount: visibleParticleCount,
+                        substepsPerSample: substepsPerSample,
                       ),
                     ),
                   )
@@ -417,18 +463,23 @@ class _SceneCard extends StatelessWidget {
     required this.scene,
     required this.repaint,
     required this.particleCount,
+    required this.visibleParticleCount,
+    required this.substepsPerSample,
   });
 
   final _BenchmarkSceneState scene;
   final Listenable repaint;
   final int particleCount;
+  final int visibleParticleCount;
+  final int substepsPerSample;
 
   @override
   Widget build(BuildContext context) {
     final particlesPerSecond =
-        scene.smoothedStepMicros == 0
+        scene.smoothedBatchMicros == 0
             ? 0
-            : (particleCount * 1000000) / scene.smoothedStepMicros;
+            : (particleCount * substepsPerSample * 1000000) /
+                scene.smoothedBatchMicros;
 
     return Card(
       clipBehavior: Clip.antiAlias,
@@ -464,13 +515,18 @@ class _SceneCard extends StatelessWidget {
               runSpacing: 8,
               children: <Widget>[
                 _SceneMetricChip(
-                  label: 'Step',
+                  label: 'Avg step',
                   value:
                       '${(scene.smoothedStepMicros / 1000).toStringAsFixed(3)} ms',
                 ),
                 _SceneMetricChip(
-                  label: 'Particles / sec',
-                  value: particlesPerSecond.toStringAsFixed(0),
+                  label: 'Batch',
+                  value:
+                      '${(scene.smoothedBatchMicros / 1000).toStringAsFixed(2)} ms',
+                ),
+                _SceneMetricChip(
+                  label: 'Updates / sec',
+                  value: _formatCompactCount(particlesPerSecond.round()),
                 ),
               ],
             ),
@@ -485,6 +541,7 @@ class _SceneCard extends StatelessWidget {
                     child: CustomPaint(
                       painter: _GalaxyPainter(
                         particles: scene.particles,
+                        visibleParticleCount: visibleParticleCount,
                         repaint: repaint,
                       ),
                     ),
@@ -519,12 +576,14 @@ class _ControlsPanel extends StatelessWidget {
     required this.viewMode,
     required this.backendKind,
     required this.particleCount,
+    required this.substepsPerSample,
     required this.timeScale,
     required this.swirl,
     required this.centerPull,
     required this.onViewModeChanged,
     required this.onBackendChanged,
     required this.onParticleCountChanged,
+    required this.onSubstepsChanged,
     required this.onTimeScaleChanged,
     required this.onSwirlChanged,
     required this.onCenterPullChanged,
@@ -533,12 +592,14 @@ class _ControlsPanel extends StatelessWidget {
   final GalaxyBenchmarkViewMode viewMode;
   final GalaxyComputeBackend backendKind;
   final int particleCount;
+  final int substepsPerSample;
   final double timeScale;
   final double swirl;
   final double centerPull;
   final ValueChanged<GalaxyBenchmarkViewMode?> onViewModeChanged;
   final ValueChanged<GalaxyComputeBackend?> onBackendChanged;
   final ValueChanged<int> onParticleCountChanged;
+  final ValueChanged<int> onSubstepsChanged;
   final ValueChanged<double> onTimeScaleChanged;
   final ValueChanged<double> onSwirlChanged;
   final ValueChanged<double> onCenterPullChanged;
@@ -595,16 +656,38 @@ class _ControlsPanel extends StatelessWidget {
                         onBackendChanged(value.isEmpty ? null : value.first),
               ),
             ),
+          Text(
+            'Compute particles',
+            style: Theme.of(context).textTheme.labelLarge,
+          ),
+          const SizedBox(height: 8),
           Wrap(
-            spacing: 12,
-            runSpacing: 12,
+            spacing: 8,
+            runSpacing: 8,
             children:
-                galaxyParticlePresets
+                galaxyComputeParticlePresets
                     .map(
                       (preset) => ChoiceChip(
-                        label: Text('$preset particles'),
+                        label: Text('${_formatCompactCount(preset)} particles'),
                         selected: particleCount == preset,
                         onSelected: (_) => onParticleCountChanged(preset),
+                      ),
+                    )
+                    .toList(),
+          ),
+          const SizedBox(height: 12),
+          Text('Work per frame', style: Theme.of(context).textTheme.labelLarge),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children:
+                galaxySubstepPresets
+                    .map(
+                      (preset) => ChoiceChip(
+                        label: Text('$preset substeps'),
+                        selected: substepsPerSample == preset,
+                        onSelected: (_) => onSubstepsChanged(preset),
                       ),
                     )
                     .toList(),
@@ -665,12 +748,12 @@ class _BenchmarkNotesPanel extends StatelessWidget {
           const _NoteRow(
             icon: Icons.call_merge,
             text:
-                'The FFI path uses one batched native call per frame, not one call per particle.',
+                'The FFI path does all selected substeps inside one native call per frame.',
           ),
           const _NoteRow(
             icon: Icons.storage,
             text:
-                'The native backend exposes a Float32List view over native memory, so the renderer reads directly from the same buffer.',
+                'Compute can use a larger native buffer than the number of particles drawn on screen.',
           ),
           const _NoteRow(
             icon: Icons.warning_amber,
@@ -684,10 +767,14 @@ class _BenchmarkNotesPanel extends StatelessWidget {
 }
 
 class _GalaxyPainter extends CustomPainter {
-  _GalaxyPainter({required this.particles, required Listenable repaint})
-    : super(repaint: repaint);
+  _GalaxyPainter({
+    required this.particles,
+    required this.visibleParticleCount,
+    required Listenable repaint,
+  }) : super(repaint: repaint);
 
   final Float32List particles;
+  final int visibleParticleCount;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -720,9 +807,14 @@ class _GalaxyPainter extends CustomPainter {
           ).createShader(Rect.fromCircle(center: center, radius: scale * 0.92));
     canvas.drawCircle(center, scale * 0.92, haloPaint);
 
+    final visibleValueCount = math.min(
+      particles.length,
+      visibleParticleCount * galaxyParticleStride,
+    );
+
     for (
       var offset = 0;
-      offset < particles.length;
+      offset < visibleValueCount;
       offset += galaxyParticleStride
     ) {
       final x = particles[offset].toDouble();
@@ -756,7 +848,8 @@ class _GalaxyPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _GalaxyPainter oldDelegate) {
-    return !identical(oldDelegate.particles, particles);
+    return !identical(oldDelegate.particles, particles) ||
+        oldDelegate.visibleParticleCount != visibleParticleCount;
   }
 }
 
@@ -828,9 +921,17 @@ class _SceneMetricChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Chip(
-      label: Text('$label: $value'),
-      visualDensity: VisualDensity.compact,
+    return SizedBox(
+      width: 176,
+      child: Chip(
+        label: Text(
+          '$label: $value',
+          maxLines: 1,
+          overflow: TextOverflow.fade,
+          softWrap: false,
+        ),
+        visualDensity: VisualDensity.compact,
+      ),
     );
   }
 }
@@ -942,4 +1043,17 @@ String _sceneTag(GalaxyComputeBackend backend) {
     GalaxyComputeBackend.dart => 'No FFI',
     GalaxyComputeBackend.cFfi => 'Native batch step',
   };
+}
+
+String _formatCompactCount(int value) {
+  if (value >= 1000000) {
+    return '${(value / 1000000).toStringAsFixed(1)}M';
+  }
+  if (value >= 1000) {
+    final thousands = value / 1000;
+    return thousands >= 10
+        ? '${thousands.toStringAsFixed(0)}k'
+        : '${thousands.toStringAsFixed(1)}k';
+  }
+  return value.toString();
 }
