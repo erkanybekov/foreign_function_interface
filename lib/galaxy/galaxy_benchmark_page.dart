@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 import 'dart:typed_data';
-import 'dart:ui' show lerpDouble;
+import 'dart:ui' show FontFeature, lerpDouble;
 
 import 'package:bank_core_ffi/bank_core_ffi.dart';
 import 'package:flutter/material.dart';
@@ -172,7 +172,7 @@ class _GalaxyBenchmarkPageState extends State<GalaxyBenchmarkPage>
     final ffiStepMicros =
         _scenes[GalaxyComputeBackend.cFfi]!.smoothedStepMicros;
     if (dartStepMicros <= 0 || ffiStepMicros <= 0) {
-      return 'warming up';
+      return 'Warming';
     }
 
     final fasterKind =
@@ -189,7 +189,7 @@ class _GalaxyBenchmarkPageState extends State<GalaxyBenchmarkPage>
             : ffiStepMicros;
     final gain = ((slowerMicros - fasterMicros) / slowerMicros) * 100;
 
-    return '${_backendLabel(fasterKind)} faster by ${gain.toStringAsFixed(1)}%';
+    return '${_backendShortLabel(fasterKind)} +${gain.toStringAsFixed(1)}%';
   }
 
   @override
@@ -361,7 +361,7 @@ class _OverviewPanel extends StatelessWidget {
         ),
         _MetricCard(
           label: 'Particle buffer',
-          value: '$particleCount x $galaxyParticleStride float32',
+          value: '$particleCount x $galaxyParticleStride f32',
         ),
         _MetricCard(label: 'Compare summary', value: compareSummary),
       ],
@@ -786,16 +786,34 @@ class _MetricCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final valueStyle = Theme.of(context).textTheme.titleLarge?.copyWith(
+      fontFeatures: const <FontFeature>[FontFeature.tabularFigures()],
+    );
+
     return SizedBox(
-      width: 200,
+      width: 208,
       child: _Panel(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Text(label, style: Theme.of(context).textTheme.labelLarge),
-            const SizedBox(height: 8),
-            Text(value, style: Theme.of(context).textTheme.titleLarge),
-          ],
+        child: SizedBox(
+          height: 72,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(label, style: Theme.of(context).textTheme.labelLarge),
+              const SizedBox(height: 8),
+              Expanded(
+                child: Align(
+                  alignment: Alignment.bottomLeft,
+                  child: Text(
+                    value,
+                    maxLines: 1,
+                    overflow: TextOverflow.fade,
+                    softWrap: false,
+                    style: valueStyle,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -909,6 +927,13 @@ String _backendLabel(GalaxyComputeBackend backend) {
   return switch (backend) {
     GalaxyComputeBackend.dart => 'Pure Dart',
     GalaxyComputeBackend.cFfi => 'C via FFI',
+  };
+}
+
+String _backendShortLabel(GalaxyComputeBackend backend) {
+  return switch (backend) {
+    GalaxyComputeBackend.dart => 'Dart',
+    GalaxyComputeBackend.cFfi => 'C FFI',
   };
 }
 
