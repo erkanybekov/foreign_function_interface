@@ -205,6 +205,110 @@ class BankCoreFfiBindings {
         )
       >(isLeaf: true);
 
+  int bank_update_galaxy_particles_rust(
+    ffi.Pointer<ffi.Float> particles,
+    int particle_count,
+    double dt_seconds,
+    double center_pull,
+    double swirl,
+    double damping,
+    double escape_radius,
+    double respawn_radius,
+  ) {
+    return _bank_update_galaxy_particles_rust(
+      particles,
+      particle_count,
+      dt_seconds,
+      center_pull,
+      swirl,
+      damping,
+      escape_radius,
+      respawn_radius,
+    );
+  }
+
+  late final _bank_update_galaxy_particles_rustPtr = _lookup<
+    ffi.NativeFunction<
+      ffi.Int32 Function(
+        ffi.Pointer<ffi.Float>,
+        ffi.Int32,
+        ffi.Float,
+        ffi.Float,
+        ffi.Float,
+        ffi.Float,
+        ffi.Float,
+        ffi.Float,
+      )
+    >
+  >('bank_update_galaxy_particles_rust');
+  late final _bank_update_galaxy_particles_rust =
+      _bank_update_galaxy_particles_rustPtr.asFunction<
+        int Function(
+          ffi.Pointer<ffi.Float>,
+          int,
+          double,
+          double,
+          double,
+          double,
+          double,
+          double,
+        )
+      >(isLeaf: true);
+
+  int bank_update_galaxy_particles_rust_batched(
+    ffi.Pointer<ffi.Float> particles,
+    int particle_count,
+    double dt_seconds,
+    double center_pull,
+    double swirl,
+    double damping,
+    double escape_radius,
+    double respawn_radius,
+    int substeps,
+  ) {
+    return _bank_update_galaxy_particles_rust_batched(
+      particles,
+      particle_count,
+      dt_seconds,
+      center_pull,
+      swirl,
+      damping,
+      escape_radius,
+      respawn_radius,
+      substeps,
+    );
+  }
+
+  late final _bank_update_galaxy_particles_rust_batchedPtr = _lookup<
+    ffi.NativeFunction<
+      ffi.Int32 Function(
+        ffi.Pointer<ffi.Float>,
+        ffi.Int32,
+        ffi.Float,
+        ffi.Float,
+        ffi.Float,
+        ffi.Float,
+        ffi.Float,
+        ffi.Float,
+        ffi.Int32,
+      )
+    >
+  >('bank_update_galaxy_particles_rust_batched');
+  late final _bank_update_galaxy_particles_rust_batched =
+      _bank_update_galaxy_particles_rust_batchedPtr.asFunction<
+        int Function(
+          ffi.Pointer<ffi.Float>,
+          int,
+          double,
+          double,
+          double,
+          double,
+          double,
+          double,
+          int,
+        )
+      >(isLeaf: true);
+
   ffi.Pointer<ffi.Char> bank_error_message(int code) {
     return _bank_error_message(code);
   }

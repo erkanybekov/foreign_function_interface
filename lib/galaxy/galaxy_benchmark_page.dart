@@ -124,6 +124,11 @@ class _GalaxyBenchmarkPageState extends State<GalaxyBenchmarkPage>
           particleCount: particleCount,
           config: _stepConfig,
         ),
+        GalaxyComputeBackend.rustFfi => RustGalaxySimulationBackend(
+          core: _resolvedCore,
+          particleCount: particleCount,
+          config: _stepConfig,
+        ),
       },
     );
   }
@@ -184,29 +189,28 @@ class _GalaxyBenchmarkPageState extends State<GalaxyBenchmarkPage>
   }
 
   _BenchmarkVerdict _benchmarkVerdict() {
-    final dartStepMicros =
-        _scenes[GalaxyComputeBackend.dart]!.smoothedStepMicros;
-    final ffiStepMicros =
-        _scenes[GalaxyComputeBackend.cFfi]!.smoothedStepMicros;
-    if (dartStepMicros <= 0 || ffiStepMicros <= 0) {
+    final samples =
+        _scenes.values
+            .where((scene) => scene.smoothedStepMicros > 0)
+            .map(
+              (scene) => (
+                kind: scene.kind,
+                stepMicros: scene.smoothedStepMicros,
+              ),
+            )
+            .toList()
+          ..sort((a, b) => a.stepMicros.compareTo(b.stepMicros));
+
+    if (samples.length < _scenes.length) {
       return const _BenchmarkVerdict.warming();
     }
 
-    final fasterKind =
-        dartStepMicros <= ffiStepMicros
-            ? GalaxyComputeBackend.dart
-            : GalaxyComputeBackend.cFfi;
-    final slowerMicros =
-        fasterKind == GalaxyComputeBackend.dart
-            ? ffiStepMicros
-            : dartStepMicros;
-    final fasterMicros =
-        fasterKind == GalaxyComputeBackend.dart
-            ? dartStepMicros
-            : ffiStepMicros;
-    final gain = ((slowerMicros - fasterMicros) / slowerMicros) * 100;
+    final winner = samples.first;
+    final runnerUp = samples[1];
+    final gain =
+        ((runnerUp.stepMicros - winner.stepMicros) / runnerUp.stepMicros) * 100;
 
-    return _BenchmarkVerdict.ready(winner: fasterKind, gainPercent: gain);
+    return _BenchmarkVerdict.ready(winner: winner.kind, gainPercent: gain);
   }
 
   @override
@@ -413,7 +417,7 @@ class _BenchmarkVerdict {
     if (winner == GalaxyComputeBackend.dart) {
       return 'Dart wins in this workload';
     }
-    return 'C FFI wins in this workload';
+    return '${_backendShortLabel(winner!)} wins in this workload';
   }
 
   String get body {
@@ -423,14 +427,14 @@ class _BenchmarkVerdict {
     if (winner == GalaxyComputeBackend.dart) {
       return 'This is expected: the math is simple, Dart AOT is fast, and FFI still has boundary cost. FFI is not an automatic speed button.';
     }
-    return 'Here the native batch is large enough to pay for the FFI boundary and still come out ahead.';
+    return 'Here the native batch is large enough to pay for the FFI boundary and still come out ahead. Compare C and Rust by keeping the particle count and substeps fixed.';
   }
 
   String get gainLabel {
     if (!isReady) {
       return 'collecting samples';
     }
-    return '${gainPercent.toStringAsFixed(1)}% faster';
+    return '${gainPercent.toStringAsFixed(1)}% over next';
   }
 }
 
@@ -716,10 +720,14 @@ class _SceneGrid extends StatelessWidget {
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
         final narrow = constraints.maxWidth < 900;
-        final cardWidth =
+        final columnCount =
             narrow || scenes.length == 1
-                ? constraints.maxWidth
-                : (constraints.maxWidth - 12) / 2;
+                ? 1
+                : constraints.maxWidth >= 1180
+                ? math.min(3, scenes.length)
+                : 2;
+        final cardWidth =
+            (constraints.maxWidth - (12 * (columnCount - 1))) / columnCount;
 
         return Wrap(
           spacing: 12,
@@ -941,6 +949,11 @@ class _ControlsPanel extends StatelessWidget {
                     label: Text('C via FFI'),
                     icon: Icon(Icons.memory),
                   ),
+                  ButtonSegment(
+                    value: GalaxyComputeBackend.rustFfi,
+                    label: Text('Rust FFI'),
+                    icon: Icon(Icons.hub),
+                  ),
                 ],
                 selected: <GalaxyComputeBackend>{backendKind},
                 onSelectionChanged:
@@ -1035,17 +1048,17 @@ class _BenchmarkNotesPanel extends StatelessWidget {
           const _NoteRow(
             icon: Icons.balance,
             text:
-                'Compare mode reseeds both backends together so they start from the same galaxy field.',
+                'Compare mode reseeds all backends together so they start from the same galaxy field.',
           ),
           const _NoteRow(
             icon: Icons.palette,
             text:
-                'Visual selector changes only the canvas layer; the Dart vs C FFI compute stays comparable.',
+                'Visual selector changes only the canvas layer; the Dart, C, and Rust compute paths stay comparable.',
           ),
           const _NoteRow(
             icon: Icons.call_merge,
             text:
-                'The FFI path does all selected substeps inside one native call per frame.',
+                'Each FFI path does all selected substeps inside one native call per frame.',
           ),
           const _NoteRow(
             icon: Icons.storage,
@@ -1644,6 +1657,7 @@ String _backendLabel(GalaxyComputeBackend backend) {
   return switch (backend) {
     GalaxyComputeBackend.dart => 'Pure Dart',
     GalaxyComputeBackend.cFfi => 'C via FFI',
+    GalaxyComputeBackend.rustFfi => 'Rust via FFI',
   };
 }
 
@@ -1651,6 +1665,7 @@ String _backendShortLabel(GalaxyComputeBackend backend) {
   return switch (backend) {
     GalaxyComputeBackend.dart => 'Dart',
     GalaxyComputeBackend.cFfi => 'C FFI',
+    GalaxyComputeBackend.rustFfi => 'Rust FFI',
   };
 }
 
@@ -1658,6 +1673,7 @@ String _sceneTag(GalaxyComputeBackend backend) {
   return switch (backend) {
     GalaxyComputeBackend.dart => 'No FFI',
     GalaxyComputeBackend.cFfi => 'Native batch step',
+    GalaxyComputeBackend.rustFfi => 'Rust ABI step',
   };
 }
 

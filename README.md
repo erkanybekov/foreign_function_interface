@@ -1,8 +1,8 @@
 # FFI Examples
 
-Flutter learning project for exploring `dart:ffi` through concrete examples, banking-style usages, and a live `Pure Dart vs C via FFI` particle benchmark.
+Flutter learning project for exploring `dart:ffi` through concrete examples, banking-style usages, and a live `Pure Dart vs C via FFI vs Rust via FFI` particle benchmark.
 
-The app depends on the local FFI plugin in `packages/bank_core_ffi`. The plugin exports a small C API and the Flutter app calls it through a Dart facade, without leaking raw pointers into the UI.
+The app depends on the local FFI plugin in `packages/bank_core_ffi`. The plugin exports a small C ABI and the Flutter app calls it through a Dart facade, without leaking raw pointers into the UI.
 
 ## What The Demo Covers
 
@@ -13,7 +13,7 @@ The app depends on the local FFI plugin in `packages/bank_core_ffi`. The plugin 
 - FFI mental model: Flutter UI -> Dart facade -> FFI boundary -> native library.
 - FFI implementation basics: C ABI export, Dart bindings, facade, native memory ownership, and compact code examples.
 - FFI best practices: generated bindings, batched calls, pointer ownership, release benchmarking, and no PII logging.
-- Batched native compute: an orbiting galaxy particle simulation where Flutter keeps the renderer and the compute backend switches between pure Dart and C via FFI.
+- Batched native compute: an orbiting galaxy particle simulation where Flutter keeps the renderer and the compute backend switches between pure Dart, C via FFI, and Rust via FFI.
 - Visual presets: Nebula, Star Warp, Gravitational Lens, Aurora, Risk Heatmap, and Device Fingerprint Field layers.
 - Banking guardrails: no custom crypto, no PII logging, and FFI as a wrapper for audited native SDKs or libraries.
 
@@ -22,7 +22,7 @@ The app depends on the local FFI plugin in `packages/bank_core_ffi`. The plugin 
 - `Examples`: concrete FFI examples, their Dart usage code, native boundary code, product usage, and fit.
 - `Live Calls`: strings, structs, error mapping, and banking-oriented native calls.
 - `Usage Map`: where FFI belongs in a BI.ZONE AntiFraud-style client/server architecture.
-- `Performance`: selectable galaxy visual layers with two compute backends, measuring step time, tick rate, and particle updates per second.
+- `Performance`: selectable galaxy visual layers with three compute backends, measuring step time, tick rate, and particle updates per second.
 
 ## Run
 

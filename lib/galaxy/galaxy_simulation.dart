@@ -5,7 +5,7 @@ import 'dart:typed_data';
 import 'package:bank_core_ffi/bank_core_ffi.dart';
 import 'package:ffi/ffi.dart';
 
-enum GalaxyComputeBackend { dart, cFfi }
+enum GalaxyComputeBackend { dart, cFfi, rustFfi }
 
 const double _goldenRatioFraction = 0.61803398875;
 const double _secondaryFraction = 0.75487766625;
@@ -255,6 +255,86 @@ class FfiGalaxySimulationBackend implements GalaxySimulationBackend {
   }) {
     final stopwatch = Stopwatch()..start();
     _core.updateGalaxyParticlesBatched(
+      particles: pointer,
+      particleCount: _particleCount,
+      dtSeconds: dtSeconds,
+      substeps: substeps,
+      config: config,
+    );
+    stopwatch.stop();
+    return stopwatch.elapsed;
+  }
+
+  @override
+  void dispose() {
+    final value = _particlesPointer;
+    if (value != null) {
+      calloc.free(value);
+      _particlesPointer = null;
+    }
+  }
+}
+
+class RustGalaxySimulationBackend implements GalaxySimulationBackend {
+  RustGalaxySimulationBackend({
+    required BankCoreFfi core,
+    required int particleCount,
+    GalaxyStepConfig config = const GalaxyStepConfig(),
+  }) : _core = core {
+    reseed(particleCount, config: config);
+  }
+
+  final BankCoreFfi _core;
+
+  @override
+  final GalaxyComputeBackend kind = GalaxyComputeBackend.rustFfi;
+
+  ffi.Pointer<ffi.Float>? _particlesPointer;
+  late Float32List _particles;
+  int _particleCount = 0;
+
+  @override
+  int get particleCount => _particleCount;
+
+  ffi.Pointer<ffi.Float> get pointer {
+    final value = _particlesPointer;
+    if (value == null) {
+      throw StateError('Native particle buffer has been disposed.');
+    }
+    return value;
+  }
+
+  @override
+  Float32List get particles => _particles;
+
+  @override
+  void reseed(
+    int particleCount, {
+    GalaxyStepConfig config = const GalaxyStepConfig(),
+  }) {
+    dispose();
+    _particleCount = particleCount;
+    _particlesPointer = calloc<ffi.Float>(particleCount * galaxyParticleStride);
+    _particles = pointer.asTypedList(particleCount * galaxyParticleStride);
+    seedGalaxyParticles(_particles, config: config);
+  }
+
+  @override
+  Duration step(
+    double dtSeconds, {
+    GalaxyStepConfig config = const GalaxyStepConfig(),
+  }) {
+    return stepBatch(dtSeconds, substeps: 1, config: config);
+  }
+
+  @override
+  Duration stepBatch(
+    double dtSeconds, {
+    required int substeps,
+    GalaxyStepConfig config = const GalaxyStepConfig(),
+  }) {
+    final stopwatch = Stopwatch()..start();
+    _core.updateGalaxyParticlesRustBatched(
       particles: pointer,
       particleCount: _particleCount,
       dtSeconds: dtSeconds,

@@ -170,6 +170,38 @@ void main() {
       expect(nativeView[index], closeTo(reference[index], 1e-4));
     }
   });
+
+  test('rust batched galaxy step matches the native C path', () {
+    const config = GalaxyStepConfig(centerPull: 1.7, swirl: 1.4);
+    final seed = <double>[0.80, 0.20, 0.05, 0.18, -0.42, 0.58, -0.08, 0.12];
+    final native = calloc<ffi.Float>(seed.length);
+    final rust = calloc<ffi.Float>(seed.length);
+    addTearDown(() {
+      calloc.free(native);
+      calloc.free(rust);
+    });
+    final nativeView = native.asTypedList(seed.length)..setAll(0, seed);
+    final rustView = rust.asTypedList(seed.length)..setAll(0, seed);
+
+    core.updateGalaxyParticlesBatched(
+      particles: native,
+      particleCount: 2,
+      dtSeconds: 1 / 60,
+      substeps: 4,
+      config: config,
+    );
+    core.updateGalaxyParticlesRustBatched(
+      particles: rust,
+      particleCount: 2,
+      dtSeconds: 1 / 60,
+      substeps: 4,
+      config: config,
+    );
+
+    for (var index = 0; index < seed.length; index++) {
+      expect(rustView[index], closeTo(nativeView[index], 1e-6));
+    }
+  });
 }
 
 Future<ffi.DynamicLibrary> _compileTestLibrary() async {

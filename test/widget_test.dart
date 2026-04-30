@@ -122,6 +122,7 @@ void main() {
     expect(find.text('Compare mode'), findsOneWidget);
     expect(find.text('Pure Dart', skipOffstage: false), findsWidgets);
     expect(find.text('C via FFI', skipOffstage: false), findsWidgets);
+    expect(find.text('Rust via FFI', skipOffstage: false), findsWidgets);
   });
 
   testWidgets('Usage map explains where FFI belongs', (
