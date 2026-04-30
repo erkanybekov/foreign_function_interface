@@ -17,8 +17,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('FFI Examples'), findsOneWidget);
-    expect(find.text('Examples and usages'), findsOneWidget);
-    expect(find.text('Scalar warm-up'), findsOneWidget);
     expect(find.text('Live Calls'), findsOneWidget);
     expect(find.text('Usage Map'), findsWidgets);
     expect(find.text('Performance'), findsOneWidget);
@@ -49,8 +47,15 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Examples and usages'), findsOneWidget);
+    expect(find.text('Mental image'), findsOneWidget);
+    expect(find.text('Dart facade'), findsOneWidget);
+    expect(find.text('FFI boundary'), findsOneWidget);
     expect(find.text('PAN / IBAN validation'), findsOneWidget);
     expect(find.text('Device risk SDK'), findsOneWidget);
+    expect(find.text('Dart usage'), findsWidgets);
+    expect(find.text('Native boundary'), findsWidgets);
+    expect(find.textContaining('bank_validate_pan'), findsOneWidget);
+    expect(find.textContaining('vendor_collect_signals'), findsOneWidget);
     expect(find.text('Implementation basics'), findsOneWidget);
     expect(find.text('1. Native C ABI'), findsOneWidget);
     expect(find.text('2. Dart binding'), findsOneWidget);

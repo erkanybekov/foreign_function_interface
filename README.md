@@ -10,7 +10,8 @@ The app depends on the local FFI plugin in `packages/bank_core_ffi`. The plugin 
 - Native string inputs: PAN/Luhn and IBAN MOD-97 validation through `char*`.
 - Native structs: transaction risk input and output structs allocated by Dart.
 - Error mapping: negative native error codes become Dart exceptions/messages.
-- FFI implementation basics: C ABI export, Dart bindings, facade, and native memory ownership.
+- FFI mental model: Flutter UI -> Dart facade -> FFI boundary -> native library.
+- FFI implementation basics: C ABI export, Dart bindings, facade, native memory ownership, and compact code examples.
 - FFI best practices: generated bindings, batched calls, pointer ownership, release benchmarking, and no PII logging.
 - Batched native compute: an orbiting galaxy particle simulation where Flutter keeps the renderer and the compute backend switches between pure Dart and C via FFI.
 - Visual presets: Nebula, Star Warp, Gravitational Lens, Aurora, Risk Heatmap, and Device Fingerprint Field layers.
@@ -18,7 +19,7 @@ The app depends on the local FFI plugin in `packages/bank_core_ffi`. The plugin 
 
 ## App Screens
 
-- `Examples`: concrete FFI examples, their native boundary, product usage, and fit.
+- `Examples`: concrete FFI examples, their Dart usage code, native boundary code, product usage, and fit.
 - `Live Calls`: strings, structs, error mapping, and banking-oriented native calls.
 - `Usage Map`: where FFI belongs in a BI.ZONE AntiFraud-style client/server architecture.
 - `Performance`: selectable galaxy visual layers with two compute backends, measuring step time, tick rate, and particle updates per second.

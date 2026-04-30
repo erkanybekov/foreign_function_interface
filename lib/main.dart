@@ -173,6 +173,8 @@ class FfiGuidePage extends StatelessWidget {
             onOpenBenchmark: onOpenBenchmark,
           ),
           const SizedBox(height: 12),
+          const _FfiMentalModelPanel(),
+          const SizedBox(height: 12),
           const _ExampleUsagePanel(),
           const SizedBox(height: 12),
           const _GuideFlowPanel(),
@@ -262,11 +264,138 @@ class _GuideHeroPanel extends StatelessWidget {
   }
 }
 
+class _FfiMentalModelPanel extends StatelessWidget {
+  const _FfiMentalModelPanel();
+
+  @override
+  Widget build(BuildContext context) {
+    return _Panel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text('Mental image', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 6),
+          Text(
+            'Flutter keeps the UI. Dart prepares native-safe data. FFI crosses into a compiled library. Dart maps the result back to app objects.',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 12),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final compact = constraints.maxWidth < 720;
+              final nodeWidth =
+                  compact
+                      ? constraints.maxWidth
+                      : (constraints.maxWidth - 72) / 4;
+              final nodes = const <Widget>[
+                _BoundaryNode(
+                  icon: Icons.phone_android,
+                  title: 'Flutter UI',
+                  body: 'Buttons, forms, state',
+                ),
+                _BoundaryNode(
+                  icon: Icons.code,
+                  title: 'Dart facade',
+                  body: 'Clean app API',
+                ),
+                _BoundaryNode(
+                  icon: Icons.memory,
+                  title: 'FFI boundary',
+                  body: 'Pointers, structs, char*',
+                ),
+                _BoundaryNode(
+                  icon: Icons.precision_manufacturing,
+                  title: 'Native library',
+                  body: 'C / Rust / vendor SDK',
+                ),
+              ];
+
+              if (compact) {
+                return Column(
+                  children:
+                      nodes
+                          .map(
+                            (node) => Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: SizedBox(width: nodeWidth, child: node),
+                            ),
+                          )
+                          .toList(),
+                );
+              }
+
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  for (var index = 0; index < nodes.length; index++) ...[
+                    SizedBox(width: nodeWidth, child: nodes[index]),
+                    if (index != nodes.length - 1)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 34),
+                        child: Icon(Icons.arrow_forward),
+                      ),
+                  ],
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BoundaryNode extends StatelessWidget {
+  const _BoundaryNode({
+    required this.icon,
+    required this.title,
+    required this.body,
+  });
+
+  final IconData icon;
+  final String title;
+  final String body;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.38),
+        border: Border.all(color: colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Icon(icon, color: colorScheme.primary),
+            const SizedBox(height: 10),
+            Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+            const SizedBox(height: 4),
+            Text(body),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _ExampleUsagePanel extends StatelessWidget {
   const _ExampleUsagePanel();
 
   static const List<
-    ({IconData icon, String example, String boundary, String usage, String fit})
+    ({
+      IconData icon,
+      String example,
+      String boundary,
+      String usage,
+      String fit,
+      String dartCode,
+      String nativeCode,
+    })
   >
   examples = [
     (
@@ -275,6 +404,8 @@ class _ExampleUsagePanel extends StatelessWidget {
       boundary: 'Dart int -> C int32_t',
       usage: 'Prove that symbols, library loading, and bindings work.',
       fit: 'Good for learning, not a real banking feature.',
+      dartCode: 'final result = bankCore.add(1200, 37);',
+      nativeCode: 'int32_t bank_add(int32_t a, int32_t b);',
     ),
     (
       icon: Icons.credit_card,
@@ -282,6 +413,8 @@ class _ExampleUsagePanel extends StatelessWidget {
       boundary: 'Dart String -> native char*',
       usage: 'Reuse the same validator library across mobile/backend/tools.',
       fit: 'Worth it only if that native validator already exists.',
+      dartCode: 'final ok = bankCore.isValidPan(pan);',
+      nativeCode: 'int32_t bank_validate_pan(const char* pan);',
     ),
     (
       icon: Icons.rule,
@@ -289,6 +422,8 @@ class _ExampleUsagePanel extends StatelessWidget {
       boundary: 'Dart struct* -> C fills output struct*',
       usage: 'Show local scoring hints before sending data to backend.',
       fit: 'Final approve/block still belongs on the server.',
+      dartCode: 'final score = bankCore.scoreTransaction(input);',
+      nativeCode: 'int32_t bank_score_transaction(input*, output*);',
     ),
     (
       icon: Icons.fingerprint,
@@ -296,6 +431,8 @@ class _ExampleUsagePanel extends StatelessWidget {
       boundary: 'Flutter facade -> native vendor SDK',
       usage: 'Collect emulator/root/hook/session integrity signals.',
       fit: 'Strong AntiFraud use case when vendor SDK is native-only.',
+      dartCode: 'final signals = deviceRisk.collectSignals();',
+      nativeCode: 'int32_t vendor_collect_signals(Signals* out);',
     ),
     (
       icon: Icons.document_scanner,
@@ -303,6 +440,8 @@ class _ExampleUsagePanel extends StatelessWidget {
       boundary: 'Image buffer/handle -> native scan engine',
       usage: 'ID scan, card scan, liveness, or document onboarding.',
       fit: 'Use audited SDKs; do not build banking OCR from scratch.',
+      dartCode: 'final result = scanner.scan(imageHandle);',
+      nativeCode: 'int32_t scan_document(ImageHandle*, ScanResult*);',
     ),
     (
       icon: Icons.speed,
@@ -310,6 +449,8 @@ class _ExampleUsagePanel extends StatelessWidget {
       boundary: 'Native buffer pointer -> many items processed in one call',
       usage: 'Performance demo: one FFI call updates many particles.',
       fit: 'Only makes sense when work is batched enough.',
+      dartCode: 'core.updateGalaxyParticlesBatched(...);',
+      nativeCode: 'int32_t update_particles(float* particles, int32_t count);',
     ),
   ];
 
@@ -350,6 +491,8 @@ class _ExampleUsagePanel extends StatelessWidget {
                               boundary: item.boundary,
                               usage: item.usage,
                               fit: item.fit,
+                              dartCode: item.dartCode,
+                              nativeCode: item.nativeCode,
                             ),
                           ),
                         )
@@ -1455,6 +1598,8 @@ class _ExampleUsageCard extends StatelessWidget {
     required this.boundary,
     required this.usage,
     required this.fit,
+    required this.dartCode,
+    required this.nativeCode,
   });
 
   final IconData icon;
@@ -1462,6 +1607,8 @@ class _ExampleUsageCard extends StatelessWidget {
   final String boundary;
   final String usage;
   final String fit;
+  final String dartCode;
+  final String nativeCode;
 
   @override
   Widget build(BuildContext context) {
@@ -1493,6 +1640,29 @@ class _ExampleUsageCard extends StatelessWidget {
             _UsageLine(label: 'Boundary', value: boundary),
             _UsageLine(label: 'Usage', value: usage),
             _UsageLine(label: 'Fit', value: fit),
+            const SizedBox(height: 8),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final narrow = constraints.maxWidth < 520;
+                final width =
+                    narrow
+                        ? constraints.maxWidth
+                        : (constraints.maxWidth - 10) / 2;
+                final blocks = <Widget>[
+                  _LabeledCodeBlock(label: 'Dart usage', code: dartCode),
+                  _LabeledCodeBlock(label: 'Native boundary', code: nativeCode),
+                ];
+
+                return Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children:
+                      blocks
+                          .map((block) => SizedBox(width: width, child: block))
+                          .toList(),
+                );
+              },
+            ),
           ],
         ),
       ),
@@ -1522,6 +1692,25 @@ class _UsageLine extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _LabeledCodeBlock extends StatelessWidget {
+  const _LabeledCodeBlock({required this.label, required this.code});
+
+  final String label;
+  final String code;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text(label, style: Theme.of(context).textTheme.labelLarge),
+        const SizedBox(height: 6),
+        _CodeBlock(code: code, maxLines: 3),
+      ],
     );
   }
 }
@@ -1562,9 +1751,10 @@ class _BasicStepCard extends StatelessWidget {
 }
 
 class _CodeBlock extends StatelessWidget {
-  const _CodeBlock({required this.code});
+  const _CodeBlock({required this.code, this.maxLines = 2});
 
   final String code;
+  final int maxLines;
 
   @override
   Widget build(BuildContext context) {
@@ -1579,7 +1769,7 @@ class _CodeBlock extends StatelessWidget {
           padding: const EdgeInsets.all(10),
           child: Text(
             code,
-            maxLines: 2,
+            maxLines: maxLines,
             style: const TextStyle(
               color: Color(0xFFE6EEF5),
               fontFamily: 'monospace',
