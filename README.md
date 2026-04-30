@@ -1,6 +1,6 @@
-# Bank FFI Lab
+# FFI Examples
 
-Flutter learning project for exploring `dart:ffi` from the C ABI up through banking-style use cases and a live `Pure Dart vs C via FFI` particle benchmark.
+Flutter learning project for exploring `dart:ffi` through concrete examples, banking-style usages, and a live `Pure Dart vs C via FFI` particle benchmark.
 
 The app depends on the local FFI plugin in `packages/bank_core_ffi`. The plugin exports a small C API and the Flutter app calls it through a Dart facade, without leaking raw pointers into the UI.
 
@@ -18,10 +18,10 @@ The app depends on the local FFI plugin in `packages/bank_core_ffi`. The plugin 
 
 ## App Screens
 
-- `Guide`: FFI basics, implementation path, banking use cases, and best practices.
-- `Bank Lab`: strings, structs, error mapping, and banking-oriented FFI examples.
-- `AntiFraud Fit`: where FFI belongs in a BI.ZONE AntiFraud-style client/server architecture.
-- `Cosmos Benchmark`: selectable galaxy visual layers with two compute backends, measuring step time, tick rate, and particle updates per second.
+- `Examples`: concrete FFI examples, their native boundary, product usage, and fit.
+- `Live Calls`: strings, structs, error mapping, and banking-oriented native calls.
+- `Usage Map`: where FFI belongs in a BI.ZONE AntiFraud-style client/server architecture.
+- `Performance`: selectable galaxy visual layers with two compute backends, measuring step time, tick rate, and particle updates per second.
 
 ## Run
 

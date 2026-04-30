@@ -53,7 +53,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Bank FFI Lab',
+      title: 'FFI Examples',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
@@ -121,18 +121,15 @@ class _HomeShellState extends State<_HomeShell> {
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
         destinations: const <NavigationDestination>[
-          NavigationDestination(icon: Icon(Icons.route), label: 'Guide'),
+          NavigationDestination(icon: Icon(Icons.route), label: 'Examples'),
           NavigationDestination(
             icon: Icon(Icons.account_balance),
-            label: 'Bank Lab',
+            label: 'Live Calls',
           ),
-          NavigationDestination(
-            icon: Icon(Icons.shield),
-            label: 'AntiFraud Fit',
-          ),
+          NavigationDestination(icon: Icon(Icons.shield), label: 'Usage Map'),
           NavigationDestination(
             icon: Icon(Icons.blur_on),
-            label: 'Cosmos Benchmark',
+            label: 'Performance',
           ),
         ],
         onDestinationSelected: (index) {
@@ -163,7 +160,7 @@ class FfiGuidePage extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('FFI Guide'),
+        title: const Text('FFI Examples'),
         backgroundColor: theme.colorScheme.surface,
         surfaceTintColor: theme.colorScheme.surfaceTint,
       ),
@@ -175,6 +172,8 @@ class FfiGuidePage extends StatelessWidget {
             onOpenAntiFraud: onOpenAntiFraud,
             onOpenBenchmark: onOpenBenchmark,
           ),
+          const SizedBox(height: 12),
+          const _ExampleUsagePanel(),
           const SizedBox(height: 12),
           const _GuideFlowPanel(),
           const SizedBox(height: 12),
@@ -214,7 +213,7 @@ class _GuideHeroPanel extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'What FFI is for',
+                  'FFI examples and usages',
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
               ),
@@ -222,7 +221,7 @@ class _GuideHeroPanel extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(
-            'FFI lets Flutter call native C ABI code. Use it to reuse native libraries or SDKs. Do not expect automatic speedups for simple Dart loops.',
+            'Each example shows what crosses the Dart/native boundary and where it fits in a banking app.',
             style: Theme.of(context).textTheme.bodyLarge,
           ),
           const SizedBox(height: 14),
@@ -243,19 +242,120 @@ class _GuideHeroPanel extends StatelessWidget {
               FilledButton.icon(
                 onPressed: onOpenBankLab,
                 icon: const Icon(Icons.account_balance),
-                label: const Text('Open Bank Lab'),
+                label: const Text('Open Live Calls'),
               ),
               OutlinedButton.icon(
                 onPressed: onOpenAntiFraud,
                 icon: const Icon(Icons.shield),
-                label: const Text('Open AntiFraud Fit'),
+                label: const Text('Open Usage Map'),
               ),
               OutlinedButton.icon(
                 onPressed: onOpenBenchmark,
                 icon: const Icon(Icons.speed),
-                label: const Text('Open Benchmark Lesson'),
+                label: const Text('Open Performance Example'),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ExampleUsagePanel extends StatelessWidget {
+  const _ExampleUsagePanel();
+
+  static const List<
+    ({IconData icon, String example, String boundary, String usage, String fit})
+  >
+  examples = [
+    (
+      icon: Icons.functions,
+      example: 'Scalar warm-up',
+      boundary: 'Dart int -> C int32_t',
+      usage: 'Prove that symbols, library loading, and bindings work.',
+      fit: 'Good for learning, not a real banking feature.',
+    ),
+    (
+      icon: Icons.credit_card,
+      example: 'PAN / IBAN validation',
+      boundary: 'Dart String -> native char*',
+      usage: 'Reuse the same validator library across mobile/backend/tools.',
+      fit: 'Worth it only if that native validator already exists.',
+    ),
+    (
+      icon: Icons.rule,
+      example: 'Transaction risk score',
+      boundary: 'Dart struct* -> C fills output struct*',
+      usage: 'Show local scoring hints before sending data to backend.',
+      fit: 'Final approve/block still belongs on the server.',
+    ),
+    (
+      icon: Icons.fingerprint,
+      example: 'Device risk SDK',
+      boundary: 'Flutter facade -> native vendor SDK',
+      usage: 'Collect emulator/root/hook/session integrity signals.',
+      fit: 'Strong AntiFraud use case when vendor SDK is native-only.',
+    ),
+    (
+      icon: Icons.document_scanner,
+      example: 'OCR / document scan',
+      boundary: 'Image buffer/handle -> native scan engine',
+      usage: 'ID scan, card scan, liveness, or document onboarding.',
+      fit: 'Use audited SDKs; do not build banking OCR from scratch.',
+    ),
+    (
+      icon: Icons.speed,
+      example: 'Batched compute',
+      boundary: 'Native buffer pointer -> many items processed in one call',
+      usage: 'Performance demo: one FFI call updates many particles.',
+      fit: 'Only makes sense when work is batched enough.',
+    ),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return _Panel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            'Examples and usages',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Use this as the team-facing map: example, boundary, product usage, and whether FFI is actually justified.',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 12),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final narrow = constraints.maxWidth < 760;
+              final width =
+                  narrow
+                      ? constraints.maxWidth
+                      : (constraints.maxWidth - 12) / 2;
+              return Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children:
+                    examples
+                        .map(
+                          (item) => SizedBox(
+                            width: width,
+                            child: _ExampleUsageCard(
+                              icon: item.icon,
+                              example: item.example,
+                              boundary: item.boundary,
+                              usage: item.usage,
+                              fit: item.fit,
+                            ),
+                          ),
+                        )
+                        .toList(),
+              );
+            },
           ),
         ],
       ),
@@ -571,7 +671,7 @@ class AntiFraudFfiFitPage extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('AntiFraud FFI Fit'),
+        title: const Text('Usage Map'),
         backgroundColor: theme.colorScheme.surface,
         surfaceTintColor: theme.colorScheme.surfaceTint,
       ),
@@ -606,7 +706,7 @@ class _AntiFraudHeroPanel extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'BI.ZONE AntiFraud: where FFI fits',
+                  'BI.ZONE AntiFraud usage map',
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
               ),
@@ -614,7 +714,7 @@ class _AntiFraudHeroPanel extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(
-            'Think of BI.ZONE AntiFraud as server-side fraud analytics. Flutter FFI is useful only for client-side native SDK pieces: device signals, local scanning, native crypto wrappers, or offline model code.',
+            'Use this screen to decide where FFI belongs. BI.ZONE AntiFraud is server-side fraud analytics; Flutter FFI is for client-side native SDK pieces.',
             style: Theme.of(context).textTheme.bodyLarge,
           ),
           const SizedBox(height: 12),
@@ -845,7 +945,7 @@ class _BankFfiLabPageState extends State<BankFfiLabPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Bank FFI Lab'),
+        title: const Text('Live FFI Calls'),
         backgroundColor: theme.colorScheme.surface,
         surfaceTintColor: theme.colorScheme.surfaceTint,
       ),
@@ -925,7 +1025,7 @@ class _HeaderPanel extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Native banking core loaded through dart:ffi',
+                  'Live native banking examples',
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
               ),
@@ -933,7 +1033,7 @@ class _HeaderPanel extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            'Flutter calls a small C library. Each card below shows one common FFI boundary.',
+            'Flutter calls a small C library. Each card is a concrete example: scalar, strings, structs, and native error mapping.',
             style: Theme.of(context).textTheme.bodyMedium,
           ),
           const SizedBox(height: 12),
@@ -1341,6 +1441,84 @@ class _GuideTile extends StatelessWidget {
                 ],
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ExampleUsageCard extends StatelessWidget {
+  const _ExampleUsageCard({
+    required this.icon,
+    required this.example,
+    required this.boundary,
+    required this.usage,
+    required this.fit,
+  });
+
+  final IconData icon;
+  final String example;
+  final String boundary;
+  final String usage;
+  final String fit;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border.all(color: colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                Icon(icon, size: 22, color: colorScheme.primary),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    example,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            _UsageLine(label: 'Boundary', value: boundary),
+            _UsageLine(label: 'Usage', value: usage),
+            _UsageLine(label: 'Fit', value: fit),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _UsageLine extends StatelessWidget {
+  const _UsageLine({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: RichText(
+        text: TextSpan(
+          style: DefaultTextStyle.of(context).style,
+          children: <InlineSpan>[
+            TextSpan(
+              text: '$label: ',
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+            TextSpan(text: value),
           ],
         ),
       ),
