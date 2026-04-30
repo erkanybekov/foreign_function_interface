@@ -12,7 +12,8 @@ The app depends on the local FFI plugin in `packages/bank_core_ffi`. The plugin 
 - Error mapping: negative native error codes become Dart exceptions/messages.
 - FFI implementation basics: C ABI export, Dart bindings, facade, and native memory ownership.
 - FFI best practices: generated bindings, batched calls, pointer ownership, release benchmarking, and no PII logging.
-- Batched native compute: a calm cosmos particle simulation where Flutter keeps the renderer and the compute backend switches between pure Dart and C via FFI.
+- Batched native compute: an orbiting galaxy particle simulation where Flutter keeps the renderer and the compute backend switches between pure Dart and C via FFI.
+- Visual presets: Nebula, Star Warp, Gravitational Lens, Aurora, Risk Heatmap, and Device Fingerprint Field layers.
 - Banking guardrails: no custom crypto, no PII logging, and FFI as a wrapper for audited native SDKs or libraries.
 
 ## App Screens
@@ -20,7 +21,7 @@ The app depends on the local FFI plugin in `packages/bank_core_ffi`. The plugin 
 - `Guide`: FFI basics, implementation path, banking use cases, and best practices.
 - `Bank Lab`: strings, structs, error mapping, and banking-oriented FFI examples.
 - `AntiFraud Fit`: where FFI belongs in a BI.ZONE AntiFraud-style client/server architecture.
-- `Cosmos Benchmark`: the same visual layer with two compute backends, measuring step time, tick rate, and particle updates per second.
+- `Cosmos Benchmark`: selectable galaxy visual layers with two compute backends, measuring step time, tick rate, and particle updates per second.
 
 ## Run
 

@@ -78,6 +78,11 @@ void main() {
   testWidgets('Cosmos benchmark opens in compare mode', (
     WidgetTester tester,
   ) async {
+    tester.view.physicalSize = const Size(1200, 1200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     await tester.pumpWidget(
       MyApp(
         service: _FakeBankLabService(),
@@ -93,6 +98,18 @@ void main() {
     expect(find.text('Cosmos Benchmark'), findsWidgets);
     expect(find.text('Benchmark lesson'), findsOneWidget);
     expect(find.text('Reset field'), findsOneWidget);
+    expect(find.text('Galaxy visual selector'), findsOneWidget);
+    expect(find.text('Nebula Shader'), findsOneWidget);
+    expect(find.text('Star Warp Shader'), findsOneWidget);
+    expect(find.text('Gravitational Lens'), findsOneWidget);
+    expect(find.text('Aurora / Plasma Ribbons'), findsOneWidget);
+    expect(find.text('Risk Heatmap Shader'), findsOneWidget);
+    expect(find.text('Device Fingerprint Field'), findsOneWidget);
+
+    await tester.tap(find.text('Risk Heatmap Shader'));
+    await tester.pump();
+
+    expect(find.textContaining('Fraud-style radar zones'), findsOneWidget);
     expect(find.text('Compare mode'), findsOneWidget);
     expect(find.text('Pure Dart', skipOffstage: false), findsWidgets);
     expect(find.text('C via FFI', skipOffstage: false), findsWidgets);
