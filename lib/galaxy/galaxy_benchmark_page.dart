@@ -545,16 +545,98 @@ class _VisualEffectPanel extends StatelessWidget {
             children:
                 GalaxyVisualEffect.values
                     .map(
-                      (effect) => ChoiceChip(
-                        avatar: Icon(effect.info.icon, size: 18),
-                        label: Text(effect.info.label),
+                      (effect) => _VisualEffectOption(
+                        effect: effect,
                         selected: selected == effect,
-                        onSelected: (_) => onChanged(effect),
+                        onTap: () => onChanged(effect),
                       ),
                     )
                     .toList(),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _VisualEffectOption extends StatelessWidget {
+  const _VisualEffectOption({
+    required this.effect,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final GalaxyVisualEffect effect;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final info = effect.info;
+    final background =
+        selected
+            ? colorScheme.primaryContainer.withValues(alpha: 0.72)
+            : colorScheme.surface;
+    final borderColor =
+        selected
+            ? colorScheme.primary.withValues(alpha: 0.26)
+            : colorScheme.outlineVariant;
+    final iconBackground =
+        selected
+            ? colorScheme.primary.withValues(alpha: 0.12)
+            : colorScheme.surfaceContainerHighest.withValues(alpha: 0.78);
+    final foreground =
+        selected ? colorScheme.onPrimaryContainer : colorScheme.onSurface;
+
+    return Semantics(
+      button: true,
+      selected: selected,
+      child: SizedBox(
+        width: 248,
+        height: 52,
+        child: Material(
+          color: background,
+          clipBehavior: Clip.antiAlias,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+            side: BorderSide(color: borderColor),
+          ),
+          child: InkWell(
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Row(
+                children: <Widget>[
+                  SizedBox.square(
+                    dimension: 32,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: iconBackground,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(info.icon, size: 19, color: foreground),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      info.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.fade,
+                      softWrap: false,
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: foreground,
+                        fontWeight:
+                            selected ? FontWeight.w700 : FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
