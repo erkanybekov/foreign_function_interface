@@ -67,6 +67,25 @@ FFI_PLUGIN_EXPORT int32_t bank_update_galaxy_particles_batched(
     float escape_radius,
     float respawn_radius,
     int32_t substeps);
+FFI_PLUGIN_EXPORT int32_t bank_update_galaxy_particles_rust(
+    float* particles,
+    int32_t particle_count,
+    float dt_seconds,
+    float center_pull,
+    float swirl,
+    float damping,
+    float escape_radius,
+    float respawn_radius);
+FFI_PLUGIN_EXPORT int32_t bank_update_galaxy_particles_rust_batched(
+    float* particles,
+    int32_t particle_count,
+    float dt_seconds,
+    float center_pull,
+    float swirl,
+    float damping,
+    float escape_radius,
+    float respawn_radius,
+    int32_t substeps);
 FFI_PLUGIN_EXPORT const char* bank_error_message(int32_t code);
 
 #ifdef __cplusplus

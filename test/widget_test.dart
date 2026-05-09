@@ -5,7 +5,7 @@ import 'package:foreign_function_interface/galaxy/galaxy_simulation.dart';
 import 'package:foreign_function_interface/main.dart';
 
 void main() {
-  testWidgets('Bank FFI lab renders validators and risk score', (
+  testWidgets('Live FFI calls render validators and risk score', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
@@ -16,22 +16,21 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('FFI Guide'), findsOneWidget);
-    expect(find.textContaining('FFI lets Flutter call native'), findsOneWidget);
-    expect(find.text('Bank Lab'), findsOneWidget);
-    expect(find.text('AntiFraud Fit'), findsOneWidget);
-    expect(find.text('Cosmos Benchmark'), findsOneWidget);
+    expect(find.text('FFI Examples'), findsOneWidget);
+    expect(find.text('Live Calls'), findsOneWidget);
+    expect(find.text('Usage Map'), findsWidgets);
+    expect(find.text('Performance'), findsOneWidget);
 
-    await tester.tap(find.text('Bank Lab'));
+    await tester.tap(find.text('Live Calls'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Bank FFI Lab'), findsOneWidget);
-    expect(find.textContaining('Native banking core'), findsOneWidget);
+    expect(find.text('Live FFI Calls'), findsOneWidget);
+    expect(find.textContaining('Live native banking examples'), findsOneWidget);
     expect(find.text('PAN VALID'), findsOneWidget);
     expect(find.text('IBAN VALID'), findsOneWidget);
   });
 
-  testWidgets('Guide explains FFI basics and best practices', (
+  testWidgets('Examples screen explains FFI basics and best practices', (
     WidgetTester tester,
   ) async {
     tester.view.physicalSize = const Size(1400, 3600);
@@ -47,6 +46,16 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    expect(find.text('Examples and usages'), findsOneWidget);
+    expect(find.text('Mental image'), findsOneWidget);
+    expect(find.text('Dart facade'), findsOneWidget);
+    expect(find.text('FFI boundary'), findsOneWidget);
+    expect(find.text('PAN / IBAN validation'), findsOneWidget);
+    expect(find.text('Device risk SDK'), findsOneWidget);
+    expect(find.text('Dart usage'), findsWidgets);
+    expect(find.text('Native boundary'), findsWidgets);
+    expect(find.textContaining('bank_validate_pan'), findsOneWidget);
+    expect(find.textContaining('vendor_collect_signals'), findsOneWidget);
     expect(find.text('Implementation basics'), findsOneWidget);
     expect(find.text('1. Native C ABI'), findsOneWidget);
     expect(find.text('2. Dart binding'), findsOneWidget);
@@ -66,7 +75,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Bank Lab'));
+    await tester.tap(find.text('Live Calls'));
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextField).first, '1234');
@@ -78,6 +87,11 @@ void main() {
   testWidgets('Cosmos benchmark opens in compare mode', (
     WidgetTester tester,
   ) async {
+    tester.view.physicalSize = const Size(1200, 1200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     await tester.pumpWidget(
       MyApp(
         service: _FakeBankLabService(),
@@ -86,19 +100,32 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Cosmos Benchmark'));
+    await tester.tap(find.text('Performance'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 32));
 
     expect(find.text('Cosmos Benchmark'), findsWidgets);
     expect(find.text('Benchmark lesson'), findsOneWidget);
     expect(find.text('Reset field'), findsOneWidget);
+    expect(find.text('Galaxy visual selector'), findsOneWidget);
+    expect(find.text('Nebula Shader'), findsOneWidget);
+    expect(find.text('Star Warp Shader'), findsOneWidget);
+    expect(find.text('Gravitational Lens'), findsOneWidget);
+    expect(find.text('Aurora / Plasma Ribbons'), findsOneWidget);
+    expect(find.text('Risk Heatmap Shader'), findsOneWidget);
+    expect(find.text('Device Fingerprint Field'), findsOneWidget);
+
+    await tester.tap(find.text('Risk Heatmap Shader'));
+    await tester.pump();
+
+    expect(find.textContaining('Fraud-style radar zones'), findsOneWidget);
     expect(find.text('Compare mode'), findsOneWidget);
     expect(find.text('Pure Dart', skipOffstage: false), findsWidgets);
     expect(find.text('C via FFI', skipOffstage: false), findsWidgets);
+    expect(find.text('Rust via FFI', skipOffstage: false), findsWidgets);
   });
 
-  testWidgets('AntiFraud fit screen explains where FFI belongs', (
+  testWidgets('Usage map explains where FFI belongs', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
@@ -109,10 +136,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('AntiFraud Fit'));
+    await tester.tap(find.text('Usage Map'));
     await tester.pumpAndSettle();
 
-    expect(find.text('AntiFraud FFI Fit'), findsOneWidget);
+    expect(find.text('Usage Map'), findsWidgets);
     expect(find.textContaining('server-side fraud analytics'), findsOneWidget);
 
     await tester.scrollUntilVisible(find.text('Fit matrix'), 300);

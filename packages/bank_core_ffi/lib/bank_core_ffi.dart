@@ -193,6 +193,46 @@ class BankCoreFfi {
     _checkResult(result);
   }
 
+  void updateGalaxyParticlesRust({
+    required ffi.Pointer<ffi.Float> particles,
+    required int particleCount,
+    required double dtSeconds,
+    GalaxyStepConfig config = const GalaxyStepConfig(),
+  }) {
+    final result = _bindings.bank_update_galaxy_particles_rust(
+      particles,
+      particleCount,
+      dtSeconds,
+      config.centerPull,
+      config.swirl,
+      config.damping,
+      config.escapeRadius,
+      config.respawnRadius,
+    );
+    _checkResult(result);
+  }
+
+  void updateGalaxyParticlesRustBatched({
+    required ffi.Pointer<ffi.Float> particles,
+    required int particleCount,
+    required double dtSeconds,
+    required int substeps,
+    GalaxyStepConfig config = const GalaxyStepConfig(),
+  }) {
+    final result = _bindings.bank_update_galaxy_particles_rust_batched(
+      particles,
+      particleCount,
+      dtSeconds,
+      config.centerPull,
+      config.swirl,
+      config.damping,
+      config.escapeRadius,
+      config.respawnRadius,
+      substeps,
+    );
+    _checkResult(result);
+  }
+
   void _checkResult(int code) {
     if (code >= 0) {
       return;
