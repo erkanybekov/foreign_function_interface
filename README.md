@@ -2,7 +2,7 @@
 
 Flutter learning project for exploring `dart:ffi` through concrete examples, banking-style usages, and a live `Pure Dart vs C via FFI vs Rust via FFI` particle benchmark.
 
-The app depends on the local FFI plugin in `packages/bank_core_ffi`. The plugin exports a small C ABI and the Flutter app calls it through a Dart facade, without leaking raw pointers into the UI.
+The app depends on the local FFI plugin in `packages/bank_core_ffi`. The plugin exports a small C ABI and the Flutter app calls it through a Dart facade, without leaking raw pointers into the UI. The C implementation is in `packages/bank_core_ffi/src`; the Rust galaxy backend is in `packages/bank_core_ffi/rust`.
 
 ## What The Demo Covers
 
@@ -44,7 +44,7 @@ flutter analyze
 flutter test
 ```
 
-The plugin tests compile `src/bank_core_ffi.c` into a temporary test dylib so the VM can exercise the real FFI calls without requiring a full Flutter app bundle.
+The plugin tests compile `src/bank_core_ffi.c` into a temporary test dylib so the VM can exercise the real FFI calls without requiring a full Flutter app bundle. When Cargo is installed, the test helper also builds and links `rust/` so the Rust galaxy symbols come from Rust. Without Cargo, the C fallback keeps the test and app build usable.
 
 Local packaging check performed in this pass:
 

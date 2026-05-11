@@ -225,10 +225,33 @@ Future<ffi.DynamicLibrary> _compileTestLibrary() async {
     );
   }
 
+  final rustStaticLibraryPath = await _compileRustStaticLibraryIfAvailable(
+    outputDirectory.path,
+  );
   final arguments =
       Platform.isMacOS
-          ? <String>['-dynamiclib', '-o', outputPath, sourcePath]
-          : <String>['-shared', '-fPIC', '-o', outputPath, sourcePath];
+          ? <String>[
+            '-dynamiclib',
+            if (rustStaticLibraryPath != null) '-DBANK_CORE_FFI_LINK_RUST',
+            '-o',
+            outputPath,
+            sourcePath,
+            if (rustStaticLibraryPath != null) rustStaticLibraryPath,
+          ]
+          : <String>[
+            '-shared',
+            '-fPIC',
+            if (rustStaticLibraryPath != null) '-DBANK_CORE_FFI_LINK_RUST',
+            '-o',
+            outputPath,
+            sourcePath,
+            if (rustStaticLibraryPath != null) ...<String>[
+              rustStaticLibraryPath,
+              '-ldl',
+              '-lpthread',
+              '-lm',
+            ],
+          ];
   final result = await Process.run('cc', arguments);
   if (result.exitCode != 0) {
     fail(
@@ -239,6 +262,48 @@ Future<ffi.DynamicLibrary> _compileTestLibrary() async {
   }
 
   return ffi.DynamicLibrary.open(outputPath);
+}
+
+Future<String?> _compileRustStaticLibraryIfAvailable(
+  String outputDirectory,
+) async {
+  final cargoPath = await _findExecutable('cargo');
+  if (cargoPath == null) {
+    return null;
+  }
+
+  final manifestPath = _join(Directory.current.path, 'rust', 'Cargo.toml');
+  final rustTargetDirectory = _join(outputDirectory, 'rust_target');
+  final result = await Process.run(cargoPath, <String>[
+    'build',
+    '--manifest-path',
+    manifestPath,
+    '--target-dir',
+    rustTargetDirectory,
+  ]);
+  if (result.exitCode != 0) {
+    fail(
+      'Failed to compile Rust native library.\n'
+      'stdout:\n${result.stdout}\n'
+      'stderr:\n${result.stderr}',
+    );
+  }
+
+  return _join(
+    rustTargetDirectory,
+    'debug',
+    Platform.isWindows ? 'bank_core_ffi_rust.lib' : 'libbank_core_ffi_rust.a',
+  );
+}
+
+Future<String?> _findExecutable(String name) async {
+  final result = await Process.run('which', <String>[name]);
+  if (result.exitCode != 0) {
+    return null;
+  }
+
+  final path = result.stdout.toString().trim();
+  return path.isEmpty ? null : path;
 }
 
 String _join(String part1, String part2, [String? part3]) {
