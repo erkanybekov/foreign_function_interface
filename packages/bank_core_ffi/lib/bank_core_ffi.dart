@@ -7,6 +7,7 @@ import 'bank_core_ffi_bindings_generated.dart';
 
 const String _libName = 'bank_core_ffi';
 const int galaxyParticleStride = 4;
+const int _rustBackendVersion = 1;
 
 ffi.DynamicLibrary _openBankCoreLibrary() {
   if (Platform.isMacOS || Platform.isIOS) {
@@ -95,6 +96,14 @@ class BankCoreFfi {
           bindings ?? BankCoreFfiBindings(library ?? _openBankCoreLibrary());
 
   final BankCoreFfiBindings _bindings;
+
+  bool get hasRustBackend {
+    try {
+      return _bindings.bank_rust_backend_version() == _rustBackendVersion;
+    } on ArgumentError {
+      return false;
+    }
+  }
 
   int add(int a, int b) => _bindings.bank_add(a, b);
 
@@ -199,6 +208,7 @@ class BankCoreFfi {
     required double dtSeconds,
     GalaxyStepConfig config = const GalaxyStepConfig(),
   }) {
+    _checkRustBackend();
     final result = _bindings.bank_update_galaxy_particles_rust(
       particles,
       particleCount,
@@ -219,6 +229,7 @@ class BankCoreFfi {
     required int substeps,
     GalaxyStepConfig config = const GalaxyStepConfig(),
   }) {
+    _checkRustBackend();
     final result = _bindings.bank_update_galaxy_particles_rust_batched(
       particles,
       particleCount,
@@ -231,6 +242,16 @@ class BankCoreFfi {
       substeps,
     );
     _checkResult(result);
+  }
+
+  void _checkRustBackend() {
+    if (hasRustBackend) {
+      return;
+    }
+
+    throw UnsupportedError(
+      'Rust FFI backend is not linked into the native library.',
+    );
   }
 
   void _checkResult(int code) {

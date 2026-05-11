@@ -302,7 +302,7 @@ FFI_PLUGIN_EXPORT int32_t bank_update_galaxy_particles_batched(
   return BANK_OK;
 }
 
-#ifndef BANK_CORE_FFI_LINK_RUST
+#ifdef BANK_CORE_FFI_ALLOW_RUST_FALLBACK
 FFI_PLUGIN_EXPORT int32_t bank_update_galaxy_particles_rust(
     float* particles,
     int32_t particle_count,
@@ -334,9 +334,8 @@ FFI_PLUGIN_EXPORT int32_t bank_update_galaxy_particles_rust_batched(
     float escape_radius,
     float respawn_radius,
     int32_t substeps) {
-  // Fallback for machines without a Rust toolchain. When Cargo is available,
-  // CMake/test builds define BANK_CORE_FFI_LINK_RUST and link the Rust crate's
-  // exports for these symbols instead.
+  // Explicit fallback for local C-only debugging. Production benchmark builds
+  // should link the Rust crate so the Rust FFI path is a real Rust backend.
   return bank_update_galaxy_particles_batched(
       particles,
       particle_count,

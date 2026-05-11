@@ -14,8 +14,8 @@ EXTERNAL SOURCES:
     :path: Flutter/ephemeral
 
 SPEC CHECKSUMS:
-  bank_core_ffi: de155c056b6c9c79d3a33d6338a0cbd1ab89a423
-  FlutterMacOS: d0db08ddef1a9af05a5ec4b724367152bb0500b1
+  bank_core_ffi: cfbbf56d6bf080315f81e282bf426ebc686121b3
+  FlutterMacOS: 8f6f14fa908a6fb3fba0cd85dbd81ec4b251fb24
 
 PODFILE CHECKSUM: 54d867c82ac51cbd61b565781b9fada492027009
 

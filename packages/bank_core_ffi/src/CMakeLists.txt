@@ -52,13 +52,25 @@ if (BANK_CORE_FFI_ENABLE_RUST AND NOT ANDROID)
     )
     add_custom_target(bank_core_ffi_rust_build DEPENDS "${RUST_STATIC_LIBRARY}")
     add_dependencies(bank_core_ffi bank_core_ffi_rust_build)
-    target_compile_definitions(bank_core_ffi PRIVATE BANK_CORE_FFI_LINK_RUST)
-    target_link_libraries(bank_core_ffi PRIVATE "${RUST_STATIC_LIBRARY}")
 
-    if (UNIX AND NOT APPLE)
-      target_link_libraries(bank_core_ffi PRIVATE dl pthread m)
+    if (APPLE)
+      target_link_libraries(bank_core_ffi PRIVATE "-Wl,-force_load,${RUST_STATIC_LIBRARY}")
+    elseif (WIN32)
+      target_link_options(bank_core_ffi PRIVATE "/WHOLEARCHIVE:${RUST_STATIC_LIBRARY}")
+      target_link_libraries(bank_core_ffi PRIVATE "${RUST_STATIC_LIBRARY}")
+    elseif (UNIX)
+      target_link_libraries(
+        bank_core_ffi
+        PRIVATE
+        "-Wl,--whole-archive"
+        "${RUST_STATIC_LIBRARY}"
+        "-Wl,--no-whole-archive"
+        dl
+        pthread
+        m
+      )
     endif()
   else()
-    message(STATUS "Cargo not found; using the C fallback for Rust ABI symbols.")
+    message(STATUS "Cargo not found; Rust ABI symbols will not be exported.")
   endif()
 endif()

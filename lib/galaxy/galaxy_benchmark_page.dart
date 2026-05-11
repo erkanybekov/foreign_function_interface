@@ -47,6 +47,7 @@ class _GalaxyBenchmarkPageState extends State<GalaxyBenchmarkPage>
   late final ValueNotifier<int> _painterTick;
   late final Map<GalaxyComputeBackend, _BenchmarkSceneState> _scenes;
   BankCoreFfi? _core;
+  bool? _hasRustBackend;
 
   GalaxyBenchmarkViewMode _viewMode = GalaxyBenchmarkViewMode.compare;
   GalaxyComputeBackend _singleBackendKind = GalaxyComputeBackend.dart;
@@ -69,7 +70,7 @@ class _GalaxyBenchmarkPageState extends State<GalaxyBenchmarkPage>
     super.initState();
     _painterTick = ValueNotifier<int>(0);
     _scenes = <GalaxyComputeBackend, _BenchmarkSceneState>{
-      for (final kind in GalaxyComputeBackend.values)
+      for (final kind in _availableBackendKinds)
         kind: _createScene(kind, particleCount: _particleCount),
     };
     _ticker = createTicker(_handleTick)..start();
@@ -118,9 +119,24 @@ class _GalaxyBenchmarkPageState extends State<GalaxyBenchmarkPage>
     return switch (_viewMode) {
       GalaxyBenchmarkViewMode.compare => _scenes.values,
       GalaxyBenchmarkViewMode.single => <_BenchmarkSceneState>[
-        _scenes[_singleBackendKind]!,
+        _scenes[_singleBackendKind] ?? _scenes[GalaxyComputeBackend.dart]!,
       ],
     };
+  }
+
+  List<GalaxyComputeBackend> get _availableBackendKinds {
+    return <GalaxyComputeBackend>[
+      GalaxyComputeBackend.dart,
+      GalaxyComputeBackend.cFfi,
+      if (_rustBackendAvailable) GalaxyComputeBackend.rustFfi,
+    ];
+  }
+
+  bool get _rustBackendAvailable {
+    if (widget.backendBuilder != null) {
+      return true;
+    }
+    return _hasRustBackend ??= _resolvedCore.hasRustBackend;
   }
 
   _BenchmarkSceneState _createScene(
@@ -224,7 +240,7 @@ class _GalaxyBenchmarkPageState extends State<GalaxyBenchmarkPage>
             .toList()
           ..sort((a, b) => a.stepMicros.compareTo(b.stepMicros));
 
-    if (samples.length < _scenes.length) {
+    if (samples.length < _scenes.length || samples.length < 2) {
       return const _BenchmarkVerdict.warming();
     }
 
@@ -271,8 +287,7 @@ class _GalaxyBenchmarkPageState extends State<GalaxyBenchmarkPage>
           const SizedBox(height: 12),
           _FragmentShaderPanel(
             useFragmentShaders: _useFragmentShaders,
-            shadersLoaded:
-                _nebulaProgram != null && _auroraProgram != null,
+            shadersLoaded: _nebulaProgram != null && _auroraProgram != null,
             onChanged: (value) {
               setState(() {
                 _useFragmentShaders = value;
@@ -288,6 +303,7 @@ class _GalaxyBenchmarkPageState extends State<GalaxyBenchmarkPage>
               _particleCount,
               galaxyVisibleParticleLimit,
             ),
+            availableBackends: _availableBackendKinds,
             substepsPerSample: _substepsPerSample,
             tickFps: tickFps,
             compareSummary: verdict.summary,
@@ -311,6 +327,7 @@ class _GalaxyBenchmarkPageState extends State<GalaxyBenchmarkPage>
           _ControlsPanel(
             viewMode: _viewMode,
             backendKind: _singleBackendKind,
+            availableBackends: _availableBackendKinds,
             particleCount: _particleCount,
             substepsPerSample: _substepsPerSample,
             timeScale: _timeScale,
@@ -650,14 +667,11 @@ class _FragmentShaderPanel extends StatelessWidget {
             children: <Widget>[
               Text(
                 useFragmentShaders ? 'GLSL' : 'Canvas',
-                style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w600),
               ),
-              Switch.adaptive(
-                value: useFragmentShaders,
-                onChanged: onChanged,
-              ),
+              Switch.adaptive(value: useFragmentShaders, onChanged: onChanged),
             ],
           ),
         ],
@@ -755,6 +769,7 @@ class _OverviewPanel extends StatelessWidget {
     required this.visualEffect,
     required this.particleCount,
     required this.visibleParticleCount,
+    required this.availableBackends,
     required this.substepsPerSample,
     required this.tickFps,
     required this.compareSummary,
@@ -764,6 +779,7 @@ class _OverviewPanel extends StatelessWidget {
   final GalaxyVisualEffect visualEffect;
   final int particleCount;
   final int visibleParticleCount;
+  final List<GalaxyComputeBackend> availableBackends;
   final int substepsPerSample;
   final double tickFps;
   final String compareSummary;
@@ -793,6 +809,10 @@ class _OverviewPanel extends StatelessWidget {
         _MetricCard(
           label: 'Drawn particles',
           value: '${_formatCompactCount(visibleParticleCount)} visible',
+        ),
+        _MetricCard(
+          label: 'Backends',
+          value: availableBackends.map(_backendShortLabel).join(' / '),
         ),
         _MetricCard(label: 'Visual layer', value: visualEffect.info.shortLabel),
         _MetricCard(label: 'Compare summary', value: compareSummary),
@@ -996,6 +1016,7 @@ class _ControlsPanel extends StatelessWidget {
   const _ControlsPanel({
     required this.viewMode,
     required this.backendKind,
+    required this.availableBackends,
     required this.particleCount,
     required this.substepsPerSample,
     required this.timeScale,
@@ -1012,6 +1033,7 @@ class _ControlsPanel extends StatelessWidget {
 
   final GalaxyBenchmarkViewMode viewMode;
   final GalaxyComputeBackend backendKind;
+  final List<GalaxyComputeBackend> availableBackends;
   final int particleCount;
   final int substepsPerSample;
   final double timeScale;
@@ -1059,24 +1081,21 @@ class _ControlsPanel extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: SegmentedButton<GalaxyComputeBackend>(
-                segments: const <ButtonSegment<GalaxyComputeBackend>>[
-                  ButtonSegment(
-                    value: GalaxyComputeBackend.dart,
-                    label: Text('Pure Dart'),
-                    icon: Icon(Icons.code),
-                  ),
-                  ButtonSegment(
-                    value: GalaxyComputeBackend.cFfi,
-                    label: Text('C via FFI'),
-                    icon: Icon(Icons.memory),
-                  ),
-                  ButtonSegment(
-                    value: GalaxyComputeBackend.rustFfi,
-                    label: Text('Rust FFI'),
-                    icon: Icon(Icons.hub),
-                  ),
-                ],
-                selected: <GalaxyComputeBackend>{backendKind},
+                segments:
+                    availableBackends
+                        .map(
+                          (backend) => ButtonSegment<GalaxyComputeBackend>(
+                            value: backend,
+                            label: Text(_backendShortLabel(backend)),
+                            icon: Icon(_backendIcon(backend)),
+                          ),
+                        )
+                        .toList(),
+                selected: <GalaxyComputeBackend>{
+                  availableBackends.contains(backendKind)
+                      ? backendKind
+                      : availableBackends.first,
+                },
                 onSelectionChanged:
                     (value) =>
                         onBackendChanged(value.isEmpty ? null : value.first),
@@ -1320,14 +1339,14 @@ class _GalaxyPainter extends CustomPainter {
   }
 
   void _drawNebula(Canvas canvas, Size size, double scale, double time) {
-    final program =
-        useFragmentShaders ? nebulaProgram : null;
+    final program = useFragmentShaders ? nebulaProgram : null;
     if (program != null) {
-      final shader = program.fragmentShader()
-        ..setFloat(0, size.width)   // uSize.x
-        ..setFloat(1, size.height)  // uSize.y
-        ..setFloat(2, time)         // uTime
-        ..setFloat(3, scale);       // uScale
+      final shader =
+          program.fragmentShader()
+            ..setFloat(0, size.width) // uSize.x
+            ..setFloat(1, size.height) // uSize.y
+            ..setFloat(2, time) // uTime
+            ..setFloat(3, scale); // uScale
       canvas.drawRect(Offset.zero & size, Paint()..shader = shader);
       return;
     }
@@ -1419,13 +1438,13 @@ class _GalaxyPainter extends CustomPainter {
   }
 
   void _drawAurora(Canvas canvas, Size size, double time) {
-    final program =
-        useFragmentShaders ? auroraProgram : null;
+    final program = useFragmentShaders ? auroraProgram : null;
     if (program != null) {
-      final shader = program.fragmentShader()
-        ..setFloat(0, size.width)   // uSize.x
-        ..setFloat(1, size.height)  // uSize.y
-        ..setFloat(2, time);        // uTime
+      final shader =
+          program.fragmentShader()
+            ..setFloat(0, size.width) // uSize.x
+            ..setFloat(1, size.height) // uSize.y
+            ..setFloat(2, time); // uTime
       canvas.drawRect(Offset.zero & size, Paint()..shader = shader);
       return;
     }
@@ -1828,7 +1847,15 @@ String _sceneTag(GalaxyComputeBackend backend) {
   return switch (backend) {
     GalaxyComputeBackend.dart => 'No FFI',
     GalaxyComputeBackend.cFfi => 'Native batch step',
-    GalaxyComputeBackend.rustFfi => 'Rust ABI step',
+    GalaxyComputeBackend.rustFfi => 'Rust crate step',
+  };
+}
+
+IconData _backendIcon(GalaxyComputeBackend backend) {
+  return switch (backend) {
+    GalaxyComputeBackend.dart => Icons.code,
+    GalaxyComputeBackend.cFfi => Icons.memory,
+    GalaxyComputeBackend.rustFfi => Icons.hub,
   };
 }
 

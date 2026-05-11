@@ -205,6 +205,17 @@ class BankCoreFfiBindings {
         )
       >(isLeaf: true);
 
+  int bank_rust_backend_version() {
+    return _bank_rust_backend_version();
+  }
+
+  late final _bank_rust_backend_versionPtr =
+      _lookup<ffi.NativeFunction<ffi.Int32 Function()>>(
+        'bank_rust_backend_version',
+      );
+  late final _bank_rust_backend_version = _bank_rust_backend_versionPtr
+      .asFunction<int Function()>(isLeaf: true);
+
   int bank_update_galaxy_particles_rust(
     ffi.Pointer<ffi.Float> particles,
     int particle_count,

@@ -4,11 +4,14 @@ const BANK_OK: i32 = 0;
 const BANK_ERR_NULL_POINTER: i32 = -1;
 const BANK_ERR_INVALID_ARGUMENT: i32 = -2;
 const BANK_GALAXY_PARTICLE_STRIDE: usize = 4;
+const BANK_RUST_BACKEND_VERSION: i32 = 1;
 
+#[inline]
 fn fractional(value: f32) -> f32 {
     value - value.floor()
 }
 
+#[inline]
 fn respawn_galaxy_particle(
     particle: &mut [f32],
     index: usize,
@@ -39,9 +42,11 @@ fn update_galaxy_particles_once(
 ) {
     let safe_dt = dt_seconds.min(0.05);
 
-    for index in 0..particle_count {
-        let offset = index * BANK_GALAXY_PARTICLE_STRIDE;
-        let particle = &mut particles[offset..offset + BANK_GALAXY_PARTICLE_STRIDE];
+    for (index, particle) in particles
+        .chunks_exact_mut(BANK_GALAXY_PARTICLE_STRIDE)
+        .take(particle_count)
+        .enumerate()
+    {
         let mut x = particle[0];
         let mut y = particle[1];
         let mut vx = particle[2];
@@ -68,6 +73,11 @@ fn update_galaxy_particles_once(
         particle[2] = vx;
         particle[3] = vy;
     }
+}
+
+#[no_mangle]
+pub extern "C" fn bank_rust_backend_version() -> i32 {
+    BANK_RUST_BACKEND_VERSION
 }
 
 #[no_mangle]

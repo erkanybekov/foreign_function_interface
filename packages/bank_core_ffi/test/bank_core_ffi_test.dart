@@ -9,9 +9,11 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   late BankCoreFfi core;
+  late bool rustBackendAvailable;
 
   setUpAll(() async {
     core = BankCoreFfi(library: await _compileTestLibrary());
+    rustBackendAvailable = core.hasRustBackend;
   });
 
   test('calls scalar native function', () {
@@ -171,7 +173,34 @@ void main() {
     }
   });
 
+  test('rust backend is not silently backed by C when Rust is missing', () {
+    if (rustBackendAvailable) {
+      markTestSkipped('Rust backend is linked in this test run.');
+      return;
+    }
+
+    final particles = calloc<ffi.Float>(galaxyParticleStride);
+    addTearDown(() => calloc.free(particles));
+
+    expect(
+      () => core.updateGalaxyParticlesRustBatched(
+        particles: particles,
+        particleCount: 1,
+        dtSeconds: 1 / 60,
+        substeps: 1,
+      ),
+      throwsA(isA<UnsupportedError>()),
+    );
+  });
+
   test('rust batched galaxy step matches the native C path', () {
+    if (!rustBackendAvailable) {
+      markTestSkipped(
+        'cargo is not available, so the Rust static library was not linked.',
+      );
+      return;
+    }
+
     const config = GalaxyStepConfig(centerPull: 1.7, swirl: 1.4);
     final seed = <double>[0.80, 0.20, 0.05, 0.18, -0.42, 0.58, -0.08, 0.12];
     final native = calloc<ffi.Float>(seed.length);
@@ -232,21 +261,22 @@ Future<ffi.DynamicLibrary> _compileTestLibrary() async {
       Platform.isMacOS
           ? <String>[
             '-dynamiclib',
-            if (rustStaticLibraryPath != null) '-DBANK_CORE_FFI_LINK_RUST',
             '-o',
             outputPath,
             sourcePath,
-            if (rustStaticLibraryPath != null) rustStaticLibraryPath,
+            if (rustStaticLibraryPath != null)
+              '-Wl,-force_load,$rustStaticLibraryPath',
           ]
           : <String>[
             '-shared',
             '-fPIC',
-            if (rustStaticLibraryPath != null) '-DBANK_CORE_FFI_LINK_RUST',
             '-o',
             outputPath,
             sourcePath,
             if (rustStaticLibraryPath != null) ...<String>[
+              '-Wl,--whole-archive',
               rustStaticLibraryPath,
+              '-Wl,--no-whole-archive',
               '-ldl',
               '-lpthread',
               '-lm',

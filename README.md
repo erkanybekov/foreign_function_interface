@@ -31,7 +31,14 @@ flutter pub get
 flutter run -d macos
 ```
 
-Android and iOS are also configured through the generated FFI plugin packaging.
+Rust must be installed for Apple builds because the `Rust FFI` backend is linked from `packages/bank_core_ffi/rust` during the CocoaPods build. The Rust crate uses an optimized dev profile so Debug app runs do not benchmark unoptimized Rust. Install Rust with `rustup`, then add the iOS simulator targets when needed:
+
+```sh
+rustup target add aarch64-apple-darwin x86_64-apple-darwin
+rustup target add aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios
+```
+
+Android and iOS are also configured through the generated FFI plugin packaging. Android currently exposes the Dart and C FFI paths unless a Rust Android cross-build is added.
 
 ## Verify
 
@@ -44,7 +51,7 @@ flutter analyze
 flutter test
 ```
 
-The plugin tests compile `src/bank_core_ffi.c` into a temporary test dylib so the VM can exercise the real FFI calls without requiring a full Flutter app bundle. When Cargo is installed, the test helper also builds and links `rust/` so the Rust galaxy symbols come from Rust. Without Cargo, the C fallback keeps the test and app build usable.
+The plugin tests compile `src/bank_core_ffi.c` into a temporary test dylib so the VM can exercise the real FFI calls without requiring a full Flutter app bundle. When Cargo is installed, the test helper also builds and force-loads `rust/` so the Rust galaxy symbols come from Rust. Without Cargo, the Rust-specific test is skipped instead of silently treating C as Rust.
 
 Local packaging check performed in this pass:
 
