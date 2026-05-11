@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
+import '../platform_adaptive.dart';
 import 'galaxy_simulation.dart';
 
 const List<int> galaxyComputeParticlePresets = <int>[8192, 32768, 65536];
@@ -257,20 +258,18 @@ class _GalaxyBenchmarkPageState extends State<GalaxyBenchmarkPage>
     final tickFps = 1000000 / _smoothedFrameMicros;
     final verdict = _benchmarkVerdict();
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Cosmos Benchmark'),
-        actions: <Widget>[
-          TextButton.icon(
-            onPressed: () {
-              setState(_reseedAllScenes);
-            },
-            icon: const Icon(Icons.refresh),
-            label: const Text('Reset field'),
-          ),
-          const SizedBox(width: 12),
-        ],
-      ),
+    return AdaptivePageScaffold(
+      title: 'Cosmos Benchmark',
+      actions: <Widget>[
+        AdaptiveAppBarAction(
+          onPressed: () {
+            setState(_reseedAllScenes);
+          },
+          icon: Icons.refresh,
+          label: 'Reset field',
+        ),
+        const SizedBox(width: 12),
+      ],
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: <Widget>[
@@ -1793,7 +1792,7 @@ class _SliderRow extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         Row(children: <Widget>[Expanded(child: Text(label)), Text(valueLabel)]),
-        Slider(
+        Slider.adaptive(
           value: value.clamp(min, max).toDouble(),
           min: min,
           max: max,

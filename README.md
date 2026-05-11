@@ -20,9 +20,20 @@ The app depends on the local FFI plugin in `packages/bank_core_ffi`. The plugin 
 ## App Screens
 
 - `Examples`: concrete FFI examples, their Dart usage code, native boundary code, product usage, and fit.
+- `Setup`: installation guide for Flutter, the local FFI plugin, Rust/Cargo, Apple targets, build wiring, and verification commands.
 - `Live Calls`: strings, structs, error mapping, and banking-oriented native calls.
 - `Usage Map`: where FFI belongs in a BI.ZONE AntiFraud-style client/server architecture.
 - `Performance`: selectable galaxy visual layers with three compute backends, measuring step time, tick rate, and particle updates per second.
+
+## Setup
+
+The app now includes a dedicated `Setup` screen with the same commands used to prepare the FFI demo:
+
+- create an app and local `plugin_ffi` package when starting from zero;
+- add `bank_core_ffi` as a path dependency;
+- install Rust with `rustup` and add Apple targets;
+- run the app and verify root/plugin tests;
+- understand how `packages/bank_core_ffi/scripts/build_rust_apple.sh` is called from the iOS/macOS podspecs.
 
 ## Run
 
