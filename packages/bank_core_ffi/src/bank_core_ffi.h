@@ -67,6 +67,7 @@ FFI_PLUGIN_EXPORT int32_t bank_update_galaxy_particles_batched(
     float escape_radius,
     float respawn_radius,
     int32_t substeps);
+FFI_PLUGIN_EXPORT int32_t bank_rust_backend_version(void);
 FFI_PLUGIN_EXPORT int32_t bank_update_galaxy_particles_rust(
     float* particles,
     int32_t particle_count,

@@ -9,9 +9,11 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   late BankCoreFfi core;
+  late bool rustBackendAvailable;
 
   setUpAll(() async {
     core = BankCoreFfi(library: await _compileTestLibrary());
+    rustBackendAvailable = core.hasRustBackend;
   });
 
   test('calls scalar native function', () {
@@ -171,7 +173,34 @@ void main() {
     }
   });
 
+  test('rust backend is not silently backed by C when Rust is missing', () {
+    if (rustBackendAvailable) {
+      markTestSkipped('Rust backend is linked in this test run.');
+      return;
+    }
+
+    final particles = calloc<ffi.Float>(galaxyParticleStride);
+    addTearDown(() => calloc.free(particles));
+
+    expect(
+      () => core.updateGalaxyParticlesRustBatched(
+        particles: particles,
+        particleCount: 1,
+        dtSeconds: 1 / 60,
+        substeps: 1,
+      ),
+      throwsA(isA<UnsupportedError>()),
+    );
+  });
+
   test('rust batched galaxy step matches the native C path', () {
+    if (!rustBackendAvailable) {
+      markTestSkipped(
+        'cargo is not available, so the Rust static library was not linked.',
+      );
+      return;
+    }
+
     const config = GalaxyStepConfig(centerPull: 1.7, swirl: 1.4);
     final seed = <double>[0.80, 0.20, 0.05, 0.18, -0.42, 0.58, -0.08, 0.12];
     final native = calloc<ffi.Float>(seed.length);
@@ -225,10 +254,34 @@ Future<ffi.DynamicLibrary> _compileTestLibrary() async {
     );
   }
 
+  final rustStaticLibraryPath = await _compileRustStaticLibraryIfAvailable(
+    outputDirectory.path,
+  );
   final arguments =
       Platform.isMacOS
-          ? <String>['-dynamiclib', '-o', outputPath, sourcePath]
-          : <String>['-shared', '-fPIC', '-o', outputPath, sourcePath];
+          ? <String>[
+            '-dynamiclib',
+            '-o',
+            outputPath,
+            sourcePath,
+            if (rustStaticLibraryPath != null)
+              '-Wl,-force_load,$rustStaticLibraryPath',
+          ]
+          : <String>[
+            '-shared',
+            '-fPIC',
+            '-o',
+            outputPath,
+            sourcePath,
+            if (rustStaticLibraryPath != null) ...<String>[
+              '-Wl,--whole-archive',
+              rustStaticLibraryPath,
+              '-Wl,--no-whole-archive',
+              '-ldl',
+              '-lpthread',
+              '-lm',
+            ],
+          ];
   final result = await Process.run('cc', arguments);
   if (result.exitCode != 0) {
     fail(
@@ -239,6 +292,48 @@ Future<ffi.DynamicLibrary> _compileTestLibrary() async {
   }
 
   return ffi.DynamicLibrary.open(outputPath);
+}
+
+Future<String?> _compileRustStaticLibraryIfAvailable(
+  String outputDirectory,
+) async {
+  final cargoPath = await _findExecutable('cargo');
+  if (cargoPath == null) {
+    return null;
+  }
+
+  final manifestPath = _join(Directory.current.path, 'rust', 'Cargo.toml');
+  final rustTargetDirectory = _join(outputDirectory, 'rust_target');
+  final result = await Process.run(cargoPath, <String>[
+    'build',
+    '--manifest-path',
+    manifestPath,
+    '--target-dir',
+    rustTargetDirectory,
+  ]);
+  if (result.exitCode != 0) {
+    fail(
+      'Failed to compile Rust native library.\n'
+      'stdout:\n${result.stdout}\n'
+      'stderr:\n${result.stderr}',
+    );
+  }
+
+  return _join(
+    rustTargetDirectory,
+    'debug',
+    Platform.isWindows ? 'bank_core_ffi_rust.lib' : 'libbank_core_ffi_rust.a',
+  );
+}
+
+Future<String?> _findExecutable(String name) async {
+  final result = await Process.run('which', <String>[name]);
+  if (result.exitCode != 0) {
+    return null;
+  }
+
+  final path = result.stdout.toString().trim();
+  return path.isEmpty ? null : path;
 }
 
 String _join(String part1, String part2, [String? part3]) {

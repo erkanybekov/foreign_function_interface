@@ -1,11 +1,12 @@
 import 'dart:math' as math;
-import 'dart:ui' show FontFeature, lerpDouble;
+import 'dart:ui' show FontFeature, FragmentProgram, lerpDouble;
 
 import 'package:bank_core_ffi/bank_core_ffi.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
+import '../platform_adaptive.dart';
 import 'galaxy_simulation.dart';
 
 const List<int> galaxyComputeParticlePresets = <int>[8192, 32768, 65536];
@@ -47,6 +48,7 @@ class _GalaxyBenchmarkPageState extends State<GalaxyBenchmarkPage>
   late final ValueNotifier<int> _painterTick;
   late final Map<GalaxyComputeBackend, _BenchmarkSceneState> _scenes;
   BankCoreFfi? _core;
+  bool? _hasRustBackend;
 
   GalaxyBenchmarkViewMode _viewMode = GalaxyBenchmarkViewMode.compare;
   GalaxyComputeBackend _singleBackendKind = GalaxyComputeBackend.dart;
@@ -60,15 +62,38 @@ class _GalaxyBenchmarkPageState extends State<GalaxyBenchmarkPage>
   int _sampleCount = 0;
   Duration? _lastElapsed;
 
+  FragmentProgram? _nebulaProgram;
+  FragmentProgram? _auroraProgram;
+  bool _useFragmentShaders = true;
+
   @override
   void initState() {
     super.initState();
     _painterTick = ValueNotifier<int>(0);
     _scenes = <GalaxyComputeBackend, _BenchmarkSceneState>{
-      for (final kind in GalaxyComputeBackend.values)
+      for (final kind in _availableBackendKinds)
         kind: _createScene(kind, particleCount: _particleCount),
     };
     _ticker = createTicker(_handleTick)..start();
+    _loadShaders();
+  }
+
+  Future<void> _loadShaders() async {
+    try {
+      final results = await Future.wait(<Future<FragmentProgram>>[
+        FragmentProgram.fromAsset('shaders/nebula.frag'),
+        FragmentProgram.fromAsset('shaders/aurora.frag'),
+      ]);
+      if (mounted) {
+        setState(() {
+          _nebulaProgram = results[0];
+          _auroraProgram = results[1];
+        });
+      }
+    } catch (e) {
+      // Shaders unavailable — fallback to software Canvas rendering.
+      debugPrint('Galaxy shaders could not be loaded: $e');
+    }
   }
 
   @override
@@ -95,9 +120,24 @@ class _GalaxyBenchmarkPageState extends State<GalaxyBenchmarkPage>
     return switch (_viewMode) {
       GalaxyBenchmarkViewMode.compare => _scenes.values,
       GalaxyBenchmarkViewMode.single => <_BenchmarkSceneState>[
-        _scenes[_singleBackendKind]!,
+        _scenes[_singleBackendKind] ?? _scenes[GalaxyComputeBackend.dart]!,
       ],
     };
+  }
+
+  List<GalaxyComputeBackend> get _availableBackendKinds {
+    return <GalaxyComputeBackend>[
+      GalaxyComputeBackend.dart,
+      GalaxyComputeBackend.cFfi,
+      if (_rustBackendAvailable) GalaxyComputeBackend.rustFfi,
+    ];
+  }
+
+  bool get _rustBackendAvailable {
+    if (widget.backendBuilder != null) {
+      return true;
+    }
+    return _hasRustBackend ??= _resolvedCore.hasRustBackend;
   }
 
   _BenchmarkSceneState _createScene(
@@ -201,7 +241,7 @@ class _GalaxyBenchmarkPageState extends State<GalaxyBenchmarkPage>
             .toList()
           ..sort((a, b) => a.stepMicros.compareTo(b.stepMicros));
 
-    if (samples.length < _scenes.length) {
+    if (samples.length < _scenes.length || samples.length < 2) {
       return const _BenchmarkVerdict.warming();
     }
 
@@ -218,20 +258,18 @@ class _GalaxyBenchmarkPageState extends State<GalaxyBenchmarkPage>
     final tickFps = 1000000 / _smoothedFrameMicros;
     final verdict = _benchmarkVerdict();
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Cosmos Benchmark'),
-        actions: <Widget>[
-          TextButton.icon(
-            onPressed: () {
-              setState(_reseedAllScenes);
-            },
-            icon: const Icon(Icons.refresh),
-            label: const Text('Reset field'),
-          ),
-          const SizedBox(width: 12),
-        ],
-      ),
+    return AdaptivePageScaffold(
+      title: 'Cosmos Benchmark',
+      actions: <Widget>[
+        AdaptiveAppBarAction(
+          onPressed: () {
+            setState(_reseedAllScenes);
+          },
+          icon: Icons.refresh,
+          label: 'Reset field',
+        ),
+        const SizedBox(width: 12),
+      ],
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: <Widget>[
@@ -246,6 +284,16 @@ class _GalaxyBenchmarkPageState extends State<GalaxyBenchmarkPage>
             },
           ),
           const SizedBox(height: 12),
+          _FragmentShaderPanel(
+            useFragmentShaders: _useFragmentShaders,
+            shadersLoaded: _nebulaProgram != null && _auroraProgram != null,
+            onChanged: (value) {
+              setState(() {
+                _useFragmentShaders = value;
+              });
+            },
+          ),
+          const SizedBox(height: 12),
           _OverviewPanel(
             viewMode: _viewMode,
             visualEffect: _visualEffect,
@@ -254,6 +302,7 @@ class _GalaxyBenchmarkPageState extends State<GalaxyBenchmarkPage>
               _particleCount,
               galaxyVisibleParticleLimit,
             ),
+            availableBackends: _availableBackendKinds,
             substepsPerSample: _substepsPerSample,
             tickFps: tickFps,
             compareSummary: verdict.summary,
@@ -269,11 +318,15 @@ class _GalaxyBenchmarkPageState extends State<GalaxyBenchmarkPage>
             ),
             substepsPerSample: _substepsPerSample,
             visualEffect: _visualEffect,
+            useFragmentShaders: _useFragmentShaders,
+            nebulaProgram: _nebulaProgram,
+            auroraProgram: _auroraProgram,
           ),
           const SizedBox(height: 12),
           _ControlsPanel(
             viewMode: _viewMode,
             backendKind: _singleBackendKind,
+            availableBackends: _availableBackendKinds,
             particleCount: _particleCount,
             substepsPerSample: _substepsPerSample,
             timeScale: _timeScale,
@@ -563,6 +616,69 @@ class _VisualEffectPanel extends StatelessWidget {
   }
 }
 
+class _FragmentShaderPanel extends StatelessWidget {
+  const _FragmentShaderPanel({
+    required this.useFragmentShaders,
+    required this.shadersLoaded,
+    required this.onChanged,
+  });
+
+  final bool useFragmentShaders;
+  final bool shadersLoaded;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final subtitle =
+        shadersLoaded
+            ? 'On: FragmentProgram (GLSL). Off: Canvas gradients and paths (original painter).'
+            : 'GLSL did not load — Nebula and Aurora always use the Canvas painter.';
+
+    return _Panel(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Icon(
+            Icons.auto_awesome,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  'Nebula / Aurora shading',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  subtitle,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: <Widget>[
+              Text(
+                useFragmentShaders ? 'GLSL' : 'Canvas',
+                style: Theme.of(
+                  context,
+                ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w600),
+              ),
+              Switch.adaptive(value: useFragmentShaders, onChanged: onChanged),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _VisualEffectOption extends StatelessWidget {
   const _VisualEffectOption({
     required this.effect,
@@ -652,6 +768,7 @@ class _OverviewPanel extends StatelessWidget {
     required this.visualEffect,
     required this.particleCount,
     required this.visibleParticleCount,
+    required this.availableBackends,
     required this.substepsPerSample,
     required this.tickFps,
     required this.compareSummary,
@@ -661,6 +778,7 @@ class _OverviewPanel extends StatelessWidget {
   final GalaxyVisualEffect visualEffect;
   final int particleCount;
   final int visibleParticleCount;
+  final List<GalaxyComputeBackend> availableBackends;
   final int substepsPerSample;
   final double tickFps;
   final String compareSummary;
@@ -691,6 +809,10 @@ class _OverviewPanel extends StatelessWidget {
           label: 'Drawn particles',
           value: '${_formatCompactCount(visibleParticleCount)} visible',
         ),
+        _MetricCard(
+          label: 'Backends',
+          value: availableBackends.map(_backendShortLabel).join(' / '),
+        ),
         _MetricCard(label: 'Visual layer', value: visualEffect.info.shortLabel),
         _MetricCard(label: 'Compare summary', value: compareSummary),
       ],
@@ -706,6 +828,9 @@ class _SceneGrid extends StatelessWidget {
     required this.visibleParticleCount,
     required this.substepsPerSample,
     required this.visualEffect,
+    required this.useFragmentShaders,
+    this.nebulaProgram,
+    this.auroraProgram,
   });
 
   final List<_BenchmarkSceneState> scenes;
@@ -714,6 +839,9 @@ class _SceneGrid extends StatelessWidget {
   final int visibleParticleCount;
   final int substepsPerSample;
   final GalaxyVisualEffect visualEffect;
+  final bool useFragmentShaders;
+  final FragmentProgram? nebulaProgram;
+  final FragmentProgram? auroraProgram;
 
   @override
   Widget build(BuildContext context) {
@@ -744,6 +872,9 @@ class _SceneGrid extends StatelessWidget {
                         visibleParticleCount: visibleParticleCount,
                         substepsPerSample: substepsPerSample,
                         visualEffect: visualEffect,
+                        useFragmentShaders: useFragmentShaders,
+                        nebulaProgram: nebulaProgram,
+                        auroraProgram: auroraProgram,
                       ),
                     ),
                   )
@@ -762,6 +893,9 @@ class _SceneCard extends StatelessWidget {
     required this.visibleParticleCount,
     required this.substepsPerSample,
     required this.visualEffect,
+    required this.useFragmentShaders,
+    this.nebulaProgram,
+    this.auroraProgram,
   });
 
   final _BenchmarkSceneState scene;
@@ -770,6 +904,9 @@ class _SceneCard extends StatelessWidget {
   final int visibleParticleCount;
   final int substepsPerSample;
   final GalaxyVisualEffect visualEffect;
+  final bool useFragmentShaders;
+  final FragmentProgram? nebulaProgram;
+  final FragmentProgram? auroraProgram;
 
   @override
   Widget build(BuildContext context) {
@@ -842,6 +979,9 @@ class _SceneCard extends StatelessWidget {
                         visibleParticleCount: visibleParticleCount,
                         visualEffect: visualEffect,
                         ticker: repaint,
+                        useFragmentShaders: useFragmentShaders,
+                        nebulaProgram: nebulaProgram,
+                        auroraProgram: auroraProgram,
                       ),
                     ),
                   ),
@@ -875,6 +1015,7 @@ class _ControlsPanel extends StatelessWidget {
   const _ControlsPanel({
     required this.viewMode,
     required this.backendKind,
+    required this.availableBackends,
     required this.particleCount,
     required this.substepsPerSample,
     required this.timeScale,
@@ -891,6 +1032,7 @@ class _ControlsPanel extends StatelessWidget {
 
   final GalaxyBenchmarkViewMode viewMode;
   final GalaxyComputeBackend backendKind;
+  final List<GalaxyComputeBackend> availableBackends;
   final int particleCount;
   final int substepsPerSample;
   final double timeScale;
@@ -938,24 +1080,21 @@ class _ControlsPanel extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: SegmentedButton<GalaxyComputeBackend>(
-                segments: const <ButtonSegment<GalaxyComputeBackend>>[
-                  ButtonSegment(
-                    value: GalaxyComputeBackend.dart,
-                    label: Text('Pure Dart'),
-                    icon: Icon(Icons.code),
-                  ),
-                  ButtonSegment(
-                    value: GalaxyComputeBackend.cFfi,
-                    label: Text('C via FFI'),
-                    icon: Icon(Icons.memory),
-                  ),
-                  ButtonSegment(
-                    value: GalaxyComputeBackend.rustFfi,
-                    label: Text('Rust FFI'),
-                    icon: Icon(Icons.hub),
-                  ),
-                ],
-                selected: <GalaxyComputeBackend>{backendKind},
+                segments:
+                    availableBackends
+                        .map(
+                          (backend) => ButtonSegment<GalaxyComputeBackend>(
+                            value: backend,
+                            label: Text(_backendShortLabel(backend)),
+                            icon: Icon(_backendIcon(backend)),
+                          ),
+                        )
+                        .toList(),
+                selected: <GalaxyComputeBackend>{
+                  availableBackends.contains(backendKind)
+                      ? backendKind
+                      : availableBackends.first,
+                },
                 onSelectionChanged:
                     (value) =>
                         onBackendChanged(value.isEmpty ? null : value.first),
@@ -1087,12 +1226,18 @@ class _GalaxyPainter extends CustomPainter {
     required this.visibleParticleCount,
     required this.visualEffect,
     required ValueListenable<int> ticker,
+    required this.useFragmentShaders,
+    this.nebulaProgram,
+    this.auroraProgram,
   }) : _ticker = ticker,
        super(repaint: ticker);
 
   final Float32List particles;
   final int visibleParticleCount;
   final GalaxyVisualEffect visualEffect;
+  final bool useFragmentShaders;
+  final FragmentProgram? nebulaProgram;
+  final FragmentProgram? auroraProgram;
   final ValueListenable<int> _ticker;
 
   @override
@@ -1193,6 +1338,19 @@ class _GalaxyPainter extends CustomPainter {
   }
 
   void _drawNebula(Canvas canvas, Size size, double scale, double time) {
+    final program = useFragmentShaders ? nebulaProgram : null;
+    if (program != null) {
+      final shader =
+          program.fragmentShader()
+            ..setFloat(0, size.width) // uSize.x
+            ..setFloat(1, size.height) // uSize.y
+            ..setFloat(2, time) // uTime
+            ..setFloat(3, scale); // uScale
+      canvas.drawRect(Offset.zero & size, Paint()..shader = shader);
+      return;
+    }
+
+    // Software fallback (original gradient implementation)
     final firstCenter = Offset(
       size.width * (0.30 + math.sin(time * 0.18) * 0.04),
       size.height * (0.42 + math.cos(time * 0.14) * 0.04),
@@ -1279,6 +1437,18 @@ class _GalaxyPainter extends CustomPainter {
   }
 
   void _drawAurora(Canvas canvas, Size size, double time) {
+    final program = useFragmentShaders ? auroraProgram : null;
+    if (program != null) {
+      final shader =
+          program.fragmentShader()
+            ..setFloat(0, size.width) // uSize.x
+            ..setFloat(1, size.height) // uSize.y
+            ..setFloat(2, time); // uTime
+      canvas.drawRect(Offset.zero & size, Paint()..shader = shader);
+      return;
+    }
+
+    // Software fallback (original polyline implementation)
     final colors = <Color>[
       const Color(0xFF6EF2B8),
       const Color(0xFF69D3FF),
@@ -1478,7 +1648,10 @@ class _GalaxyPainter extends CustomPainter {
   bool shouldRepaint(covariant _GalaxyPainter oldDelegate) {
     return !identical(oldDelegate.particles, particles) ||
         oldDelegate.visibleParticleCount != visibleParticleCount ||
-        oldDelegate.visualEffect != visualEffect;
+        oldDelegate.visualEffect != visualEffect ||
+        oldDelegate.useFragmentShaders != useFragmentShaders ||
+        oldDelegate.nebulaProgram != nebulaProgram ||
+        oldDelegate.auroraProgram != auroraProgram;
   }
 }
 
@@ -1619,7 +1792,7 @@ class _SliderRow extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         Row(children: <Widget>[Expanded(child: Text(label)), Text(valueLabel)]),
-        Slider(
+        Slider.adaptive(
           value: value.clamp(min, max).toDouble(),
           min: min,
           max: max,
@@ -1673,7 +1846,15 @@ String _sceneTag(GalaxyComputeBackend backend) {
   return switch (backend) {
     GalaxyComputeBackend.dart => 'No FFI',
     GalaxyComputeBackend.cFfi => 'Native batch step',
-    GalaxyComputeBackend.rustFfi => 'Rust ABI step',
+    GalaxyComputeBackend.rustFfi => 'Rust crate step',
+  };
+}
+
+IconData _backendIcon(GalaxyComputeBackend backend) {
+  return switch (backend) {
+    GalaxyComputeBackend.dart => Icons.code,
+    GalaxyComputeBackend.cFfi => Icons.memory,
+    GalaxyComputeBackend.rustFfi => Icons.hub,
   };
 }
 

@@ -302,6 +302,7 @@ FFI_PLUGIN_EXPORT int32_t bank_update_galaxy_particles_batched(
   return BANK_OK;
 }
 
+#ifdef BANK_CORE_FFI_ALLOW_RUST_FALLBACK
 FFI_PLUGIN_EXPORT int32_t bank_update_galaxy_particles_rust(
     float* particles,
     int32_t particle_count,
@@ -333,8 +334,8 @@ FFI_PLUGIN_EXPORT int32_t bank_update_galaxy_particles_rust_batched(
     float escape_radius,
     float respawn_radius,
     int32_t substeps) {
-  // Rust exports the same C ABI shape. This keeps the Flutter/Dart surface
-  // stable even if the native implementation is swapped for a Rust crate.
+  // Explicit fallback for local C-only debugging. Production benchmark builds
+  // should link the Rust crate so the Rust FFI path is a real Rust backend.
   return bank_update_galaxy_particles_batched(
       particles,
       particle_count,
@@ -346,6 +347,7 @@ FFI_PLUGIN_EXPORT int32_t bank_update_galaxy_particles_rust_batched(
       respawn_radius,
       substeps);
 }
+#endif
 
 FFI_PLUGIN_EXPORT const char* bank_error_message(int32_t code) {
   switch (code) {

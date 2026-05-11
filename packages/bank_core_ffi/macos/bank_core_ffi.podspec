@@ -19,6 +19,12 @@ A new Flutter FFI plugin project.
   # `../src/*` so that the C sources can be shared among all target platforms.
   s.source           = { :path => '.' }
   s.source_files = 'Classes/**/*'
+  s.script_phase = {
+    :name => 'Build Rust static library',
+    :execution_position => :before_compile,
+    :script => '"${PODS_TARGET_SRCROOT}/../scripts/build_rust_apple.sh"',
+    :output_files => ['$(PODS_TARGET_SRCROOT)/../rust/target/apple/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)/libbank_core_ffi_rust.a']
+  }
 
   # If your plugin requires a privacy manifest, for example if it collects user
   # data, update the PrivacyInfo.xcprivacy file to describe your plugin's
@@ -29,6 +35,9 @@ A new Flutter FFI plugin project.
   s.dependency 'FlutterMacOS'
 
   s.platform = :osx, '10.11'
-  s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES' }
+  s.pod_target_xcconfig = {
+    'DEFINES_MODULE' => 'YES',
+    'OTHER_LDFLAGS' => '$(inherited) -force_load "$(PODS_TARGET_SRCROOT)/../rust/target/apple/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)/libbank_core_ffi_rust.a"'
+  }
   s.swift_version = '5.0'
 end

@@ -17,6 +17,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('FFI Examples'), findsOneWidget);
+    expect(find.text('Setup'), findsOneWidget);
     expect(find.text('Live Calls'), findsOneWidget);
     expect(find.text('Usage Map'), findsWidgets);
     expect(find.text('Performance'), findsOneWidget);
@@ -64,6 +65,52 @@ void main() {
     expect(find.text('Best practices'), findsOneWidget);
     expect(find.text('Do'), findsOneWidget);
     expect(find.text('Do not'), findsOneWidget);
+  });
+
+  testWidgets('Setup screen explains installation and Rust toolchain', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1400, 4200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MyApp(
+        service: _FakeBankLabService(),
+        benchmarkBackendBuilder: _fakeBenchmarkBackendBuilder,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Setup'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Setup Guide'), findsOneWidget);
+    expect(find.text('How to setup this FFI demo'), findsOneWidget);
+    expect(find.text('What was set up'), findsOneWidget);
+    expect(find.text('Create app and FFI plugin'), findsOneWidget);
+    expect(
+      find.textContaining('flutter create --template=plugin_ffi'),
+      findsOneWidget,
+    );
+    expect(find.text('Install Rust for the Rust FFI backend'), findsOneWidget);
+    expect(
+      find.textContaining('rustup target add aarch64-apple-darwin'),
+      findsOneWidget,
+    );
+    expect(find.text('How the Rust build is connected'), findsOneWidget);
+    expect(
+      find.textContaining('packages/bank_core_ffi/scripts/build_rust_apple.sh'),
+      findsOneWidget,
+    );
+
+    await tester.drag(find.byType(ListView), const Offset(0, -1200));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Verify the setup'), findsWidgets);
+    expect(find.text('Plugin checks'), findsOneWidget);
+    expect(find.textContaining('dart run ffigen'), findsOneWidget);
   });
 
   testWidgets('PAN status reacts to user input', (WidgetTester tester) async {
