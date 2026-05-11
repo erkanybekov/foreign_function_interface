@@ -14,8 +14,8 @@ EXTERNAL SOURCES:
     :path: Flutter
 
 SPEC CHECKSUMS:
-  bank_core_ffi: 32308b023193a0c3825e55570634829abad5aa9d
-  Flutter: e0871f40cf51350855a761d2e70bf5af5b9b5de7
+  bank_core_ffi: 3b0352581d9a86dfcaf2a0c6be5c4ced29a9e972
+  Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
 
 PODFILE CHECKSUM: 4305caec6b40dde0ae97be1573c53de1882a07e5
 

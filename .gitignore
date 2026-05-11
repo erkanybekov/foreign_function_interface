@@ -43,3 +43,13 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# iOS
+ios/Podfile.lock
+
+# macOS
+macOS/Podfile
+macos/Podfile.lock
+macos/Runner.xcodeproj/project.pbxproj
+
+pubspec.lock
