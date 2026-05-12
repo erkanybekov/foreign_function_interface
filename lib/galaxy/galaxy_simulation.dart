@@ -1,3 +1,9 @@
+/// Galaxy particle simulation: pure Dart integrator plus FFI backends into `bank_core_ffi`.
+///
+/// [GalaxySimulationBackend] is the abstraction; concrete implementations call
+/// Dart, C, or Rust through the same [Float32List] particle buffer layout
+/// ([galaxyParticleStride] floats per particle).
+library;
 import 'dart:ffi' as ffi;
 import 'dart:math' as math;
 import 'dart:typed_data';
@@ -5,6 +11,7 @@ import 'dart:typed_data';
 import 'package:bank_core_ffi/bank_core_ffi.dart';
 import 'package:ffi/ffi.dart';
 
+/// Which integration path powers the benchmarked galaxy step.
 enum GalaxyComputeBackend { dart, cFfi, rustFfi }
 
 const double _goldenRatioFraction = 0.61803398875;
@@ -113,6 +120,7 @@ void stepGalaxyParticlesDartBatched(
   }
 }
 
+/// Shared contract for stepping and reseeding a particle buffer for the UI demo.
 abstract class GalaxySimulationBackend {
   GalaxyComputeBackend get kind;
   int get particleCount;
@@ -134,6 +142,7 @@ abstract class GalaxySimulationBackend {
   void dispose();
 }
 
+/// Pure Dart integrator using [stepGalaxyParticlesDartBatched].
 class DartGalaxySimulationBackend implements GalaxySimulationBackend {
   DartGalaxySimulationBackend({
     required int particleCount,
@@ -195,6 +204,7 @@ class DartGalaxySimulationBackend implements GalaxySimulationBackend {
   void dispose() {}
 }
 
+/// C implementation via [BankCoreFfi] FFI bindings.
 class FfiGalaxySimulationBackend implements GalaxySimulationBackend {
   FfiGalaxySimulationBackend({
     required BankCoreFfi core,
@@ -275,6 +285,7 @@ class FfiGalaxySimulationBackend implements GalaxySimulationBackend {
   }
 }
 
+/// Rust implementation via the same [BankCoreFfi] when a Rust backend is linked.
 class RustGalaxySimulationBackend implements GalaxySimulationBackend {
   RustGalaxySimulationBackend({
     required BankCoreFfi core,
