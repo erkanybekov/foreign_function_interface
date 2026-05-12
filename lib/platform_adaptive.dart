@@ -98,7 +98,6 @@ class AdaptiveAppBarAction extends StatelessWidget {
     if (isApplePlatform(context)) {
       return CupertinoButton(
         padding: const EdgeInsets.symmetric(horizontal: 6),
-        minSize: 0,
         onPressed: onPressed,
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -107,7 +106,7 @@ class AdaptiveAppBarAction extends StatelessWidget {
             const SizedBox(width: 4),
             Text(label),
           ],
-        ),
+        ), minimumSize: Size(0, 0),
       );
     }
 
